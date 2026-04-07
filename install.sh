@@ -29,7 +29,7 @@ pip install "$PROJECT_DIR" --user --break-system-packages 2>/dev/null || pip ins
 
 # Integration in .bashrc (Avoid duplicates)
 if ! grep -qF "source $SHELL_INIT" "$BASHRC"; then
-    echo -e "\n# Proton-T Integration\nsource $SHELL_INIT" >> "$BASHRC"
+    printf "\n# Proton-T Integration\nsource %s\n" "$SHELL_INIT" >> "$BASHRC"
 fi
 
 # Integration in config.fish
@@ -41,7 +41,7 @@ if command -v fish >/dev/null 2>&1; then
         touch "$FISH_CONFIG"
     fi
     if ! grep -qF "source $FISH_INIT" "$FISH_CONFIG"; then
-        echo -e "\n# Proton-T Integration\nsource $FISH_INIT" >> "$FISH_CONFIG"
+        printf "\n# Proton-T Integration\nsource %s\n" "$FISH_INIT" >> "$FISH_CONFIG"
     fi
 fi
 
