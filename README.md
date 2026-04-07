@@ -1,66 +1,68 @@
 # Proton-T
 
-A smarter `cd` command. It tracks your directory usage and allows you to jump to your most frequent and recent directories using short keywords.
+**The Smarter Way to Navigate.**
 
-## Features
+Proton-T is a high-performance directory navigation utility designed to help you jump into your projects instantly. It learns your workflow, ranks your favorite folders, and discovers new ones with zero friction.
 
-- **Frecency Ranking**: Prioritizes directories you visit often and recently.
-- **Smart Fallback**: Automatically searches common folders (Downloads, Projects, etc.) if a match isn't in history.
-- **Interactive Mode**: Use `ti` to choose from multiple matches when a query is ambiguous.
-- **Natural Pathing**: Supports direct paths, `t -` for back, and `t ..` for up.
-- **Zero-Config**: Single script installation for Bash and Zsh.
+---
+
+## Core Capabilities
+
+### Near-Instant Jumps
+Skip the `cd` chain. Use short keywords to warp into any directory. Proton-T is written in optimized, lightweight Python for maximum responsiveness and minimal system impact.
+
+### Deep Intelligence
+Our Frecency Engine calculates the perfect balance between frequency and recency. It gets smarter the more you use it, prioritizing your current active projects while remembering your long-term favorites.
+
+### Fuzzy & Sequence Search
+Don't worry about typing the exact name. The smart fuzzy matcher finds your folders even if you skip characters (e.g., `ptn` -> `proton-project`).
+
+---
+
+## Advanced Features
+
+### Smart Fallback Discovery
+Never visited a folder before? No problem. Proton-T automatically scans your common workspace roots (Projects, Downloads, etc.) to help you find and bookmark new directories on the fly.
+
+### Interactive Selection (ti)
+When paths collide, just use `ti`. A clean numbered menu lets you pick the exact destination when multiple matches are found.
+
+### Smart Blacklist
+Say goodbye to junk suggestions. Proton-T automatically filters out noise like `node_modules`, `.git`, `.venv`, and `__pycache__` to keep your navigation clean.
+
+---
 
 ## Quick Install
 
-### Linux / macOS (Bash/Zsh)
+### Universal One-liner
+Proton-T works everywhere. Install it in seconds on Linux, macOS, or Windows:
+
+**Linux / macOS (Bash/Zsh)**
 ```bash
 curl -sSfL https://raw.githubusercontent.com/Pheem49/Proton-T/main/install.sh | sh
 ```
 
-### Windows (PowerShell)
+**Windows (PowerShell)**
 ```powershell
 iex (Invoke-RestMethod https://raw.githubusercontent.com/Pheem49/Proton-T/main/install.ps1)
 ```
 > [!NOTE]
-> If scripts are blocked, run: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
+> On Windows, you might need to run: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
 
-## Manual Installation
-
-Alternatively, you can clone the repository manually:
-
-```bash
-git clone https://github.com/Pheem49/Proton-T.git
-cd Proton-T
-chmod +x install.sh
-./install.sh
-source ~/.bashrc
-```
+---
 
 ## Usage
 
-### Basic Jumping
-Jump to a directory by typing part of its name:
-```bash
-t my-project
-```
+| Command | Action |
+| :--- | :--- |
+| `t <query>` | Jump to the best match |
+| `ti <query>` | Open interactive selection |
+| `t -` | Go back to the previous directory |
+| `t ..` | Go up one level |
+| `proton-t list` | View current directory rankings |
 
-### Interactive Selection
-Choose from a list of possible matches:
-```bash
-ti flask
-```
-
-### Special Navigations
-- Go back to previous directory: `t -`
-- Go up one level: `t ..`
-
-### List History
-Show all tracked directories and their scores:
-```bash
-proton-t list
-```
+---
 
 ## Configuration
-
-- `_PT_ECHO=1`: Set this environment variable to print the target path before jumping.
-- Database is stored at: `~/.proton_t_db.json`
+- `_PT_ECHO=1`: Print the target path before jumping.
+- Database: `~/.proton_t_db.json`

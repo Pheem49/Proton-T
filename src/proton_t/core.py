@@ -2,6 +2,9 @@ import os, time, math, json
 
 DB_FILE = os.path.expanduser("~/.proton_t_db.json")
 MAX_ENTRIES = 1000
+EXCLUDE_LIST = {
+    'node_modules', '.git', '__pycache__', '.venv', '.next', '.pytest_cache', '.casbin'
+}
 
 def load_db():
     if not os.path.exists(DB_FILE): return {}
@@ -16,9 +19,25 @@ def save_db(data):
         data = dict(sorted_items[:MAX_ENTRIES])
     with open(DB_FILE, 'w') as f: json.dump(data, f, indent=2)
 
+def is_excluded(path):
+    parts = os.path.normpath(path).split(os.sep)
+    return any(p in EXCLUDE_LIST for p in parts)
+
+def is_fuzzy_match(keywords, path):
+    """Check if all keywords appear as fuzzy or substring matches in the path."""
+    path_lower = path.lower()
+    for kw in keywords:
+        kw_lower = kw.lower()
+        # Fast substring check first
+        if kw_lower in path_lower: continue
+        # Then character-to-character sequence check (the 'fuzzy' part)
+        it = iter(path_lower)
+        if not all(c in it for c in kw_lower): return False
+    return True
+
 def add_path(path):
     path = os.path.normpath(os.path.abspath(path))
-    if not os.path.isdir(path): return
+    if not os.path.isdir(path) or is_excluded(path): return
     db, now = load_db(), time.time()
     if path in db:
         db[path]['score'] += 1
@@ -44,7 +63,6 @@ SEARCH_ROOTS = sorted(list(set([os.path.normpath(r) for r in SEARCH_ROOTS if os.
 
 def fallback_search(keywords, max_depth=2, limit=10):
     """Scan common folders and return ALL matching directories."""
-    keywords_lower = [k.lower() for k in keywords]
     found_paths = []
     for root in SEARCH_ROOTS:
         queue = [(root, 0)]
@@ -55,8 +73,8 @@ def fallback_search(keywords, max_depth=2, limit=10):
                 with os.scandir(curr_dir) as it:
                     for entry in it:
                         if entry.is_dir():
-                            if entry.name.startswith('.') or entry.name == "__pycache__": continue
-                            if all(k in entry.name.lower() for k in keywords_lower):
+                            if entry.name.startswith('.') or entry.name in EXCLUDE_LIST: continue
+                            if is_fuzzy_match(keywords, entry.name):
                                 path = os.path.normpath(entry.path)
                                 if path not in found_paths:
                                     found_paths.append(path)
@@ -75,15 +93,16 @@ def query_paths(keywords):
     if os.path.isdir(potential_path):
         return potential_path
 
-    # 2. Database search
+    # 2. Database search with fuzzy matching
     db, now = load_db(), time.time()
     matches = []
-    keywords_lower = [k.lower() for k in keywords]
 
     for path, entry in db.items():
-        if all(k in path.lower() for k in keywords_lower):
+        if is_fuzzy_match(keywords, path):
             score = get_score(entry, now)
-            if any(k == os.path.basename(path).lower() for k in keywords_lower):
+            # Boost exact substring matches in basename
+            basename = os.path.basename(path).lower()
+            if all(k.lower() in basename for k in keywords):
                 score *= 10
             matches.append((path, score))
     
@@ -92,8 +111,10 @@ def query_paths(keywords):
         return matches[0][0]
 
     # 3. Fallback search (Take first match for direct query)
-    found = fallback_search(keywords, limit=1)
+    found = fallback_search(keywords, limit=2) # Check a couple to be safe
     if found:
+        # Filter for the best match using basename logic
+        found.sort(key=lambda p: all(k.lower() in os.path.basename(p).lower() for k in keywords), reverse=True)
         add_path(found[0])
         return found[0]
         
@@ -104,12 +125,13 @@ def get_all_matches(keywords):
     
     db, now = load_db(), time.time()
     matches = []
-    keywords_lower = [k.lower() for k in keywords]
 
     for path, entry in db.items():
-        if all(k in path.lower() for k in keywords_lower):
+        if is_fuzzy_match(keywords, path):
+            if is_excluded(path): continue
             score = get_score(entry, now)
-            if any(k == os.path.basename(path).lower() for k in keywords_lower):
+            basename = os.path.basename(path).lower()
+            if all(k.lower() in basename for k in keywords):
                 score *= 10
             matches.append((path, score))
     

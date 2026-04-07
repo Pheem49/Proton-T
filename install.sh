@@ -32,4 +32,17 @@ if ! grep -qF "source $SHELL_INIT" "$BASHRC"; then
     echo -e "\n# Proton-T Integration\nsource $SHELL_INIT" >> "$BASHRC"
 fi
 
-echo "Done! Please run: source ~/.bashrc"
+# Integration in config.fish
+FISH_CONFIG="$HOME/.config/fish/config.fish"
+FISH_INIT="$PROJECT_DIR/init.fish"
+if command -v fish >/dev/null 2>&1; then
+    if [ ! -f "$FISH_CONFIG" ]; then
+        mkdir -p "$(dirname "$FISH_CONFIG")"
+        touch "$FISH_CONFIG"
+    fi
+    if ! grep -qF "source $FISH_INIT" "$FISH_CONFIG"; then
+        echo -e "\n# Proton-T Integration\nsource $FISH_INIT" >> "$FISH_CONFIG"
+    fi
+fi
+
+echo "Done! Please run: source ~/.bashrc (or restart your shell)"
