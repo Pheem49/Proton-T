@@ -10,11 +10,21 @@ A smarter `cd` command. It tracks your directory usage and allows you to jump to
 - **Natural Pathing**: Supports direct paths, `t -` for back, and `t ..` for up.
 - **Zero-Config**: Single script installation for Bash and Zsh.
 
-## Installation
+## Quick Install
 
-Run the following commands in the project directory:
+The easiest way to install is via this one-line command:
 
 ```bash
+curl -sSfL https://raw.githubusercontent.com/Pheem49/Proton-T/main/install.sh | sh
+```
+
+## Manual Installation
+
+Alternatively, you can clone the repository manually:
+
+```bash
+git clone https://github.com/Pheem49/Proton-T.git
+cd Proton-T
 chmod +x install.sh
 ./install.sh
 source ~/.bashrc

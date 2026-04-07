@@ -1,13 +1,35 @@
 #!/bin/bash
 set -e
-PROJECT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+REPO_URL="https://github.com/Pheem49/Proton-T.git"
+INSTALL_DIR="$HOME/.proton-t"
+
+# Bootstrap: If not in the project folder, clone it to ~/.proton-t
+if [ ! -f "pyproject.toml" ]; then
+    if ! command -v git >/dev/null 2>&1; then
+        echo "Error: git is not installed."
+        exit 1
+    fi
+    echo "Downloading Proton-T..."
+    if [ -d "$INSTALL_DIR" ]; then
+        cd "$INSTALL_DIR" && git pull
+    else
+        git clone "$REPO_URL" "$INSTALL_DIR"
+        cd "$INSTALL_DIR"
+    fi
+fi
+
+PROJECT_DIR=$(pwd)
 SHELL_INIT="$PROJECT_DIR/shell_init.sh"
 BASHRC="$HOME/.bashrc"
+
 echo "Installing Proton-T..."
 # Install as Python Package
 pip install "$PROJECT_DIR" --user --break-system-packages 2>/dev/null || pip install "$PROJECT_DIR" --user
-# Integration in .bashrc
+
+# Integration in .bashrc (Avoid duplicates)
 if ! grep -qF "source $SHELL_INIT" "$BASHRC"; then
     echo -e "\n# Proton-T Integration\nsource $SHELL_INIT" >> "$BASHRC"
 fi
+
 echo "Done! Please run: source ~/.bashrc"
