@@ -17,7 +17,7 @@ def save_db(data):
     with open(DB_FILE, 'w') as f: json.dump(data, f, indent=2)
 
 def add_path(path):
-    path = os.path.abspath(path)
+    path = os.path.normpath(os.path.abspath(path))
     if not os.path.isdir(path): return
     db, now = load_db(), time.time()
     if path in db:
@@ -39,8 +39,8 @@ SEARCH_ROOTS = [
     os.path.expanduser("~/vscode/Project"),
     os.path.expanduser("~/Desktop")
 ]
-# Clean and unique roots
-SEARCH_ROOTS = sorted(list(set([r for r in SEARCH_ROOTS if os.path.isdir(r)])))
+# Clean and unique roots, normalized for current OS
+SEARCH_ROOTS = sorted(list(set([os.path.normpath(r) for r in SEARCH_ROOTS if os.path.isdir(r)])))
 
 def fallback_search(keywords, max_depth=2, limit=10):
     """Scan common folders and return ALL matching directories."""
@@ -57,10 +57,11 @@ def fallback_search(keywords, max_depth=2, limit=10):
                         if entry.is_dir():
                             if entry.name.startswith('.') or entry.name == "__pycache__": continue
                             if all(k in entry.name.lower() for k in keywords_lower):
-                                if entry.path not in found_paths:
-                                    found_paths.append(entry.path)
+                                path = os.path.normpath(entry.path)
+                                if path not in found_paths:
+                                    found_paths.append(path)
                                     if len(found_paths) >= limit: return found_paths
-                            queue.append((entry.path, depth + 1))
+                            queue.append((os.path.normpath(entry.path), depth + 1))
             except (PermissionError, FileNotFoundError):
                 continue
     return found_paths
@@ -70,7 +71,7 @@ def query_paths(keywords):
     
     # 1. Direct path check
     full_search = " ".join(keywords)
-    potential_path = os.path.abspath(os.path.expanduser(full_search))
+    potential_path = os.path.normpath(os.path.abspath(os.path.expanduser(full_search)))
     if os.path.isdir(potential_path):
         return potential_path
 

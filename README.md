@@ -12,11 +12,17 @@ A smarter `cd` command. It tracks your directory usage and allows you to jump to
 
 ## Quick Install
 
-The easiest way to install is via this one-line command:
-
+### Linux / macOS (Bash/Zsh)
 ```bash
 curl -sSfL https://raw.githubusercontent.com/Pheem49/Proton-T/main/install.sh | sh
 ```
+
+### Windows (PowerShell)
+```powershell
+iex (Invoke-RestMethod https://raw.githubusercontent.com/Pheem49/Proton-T/main/install.ps1)
+```
+> [!NOTE]
+> If scripts are blocked, run: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`
 
 ## Manual Installation
 
