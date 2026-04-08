@@ -65,8 +65,7 @@ def run_tui(matches):
         curses.curs_set(0)
         curses.use_default_colors()
         if curses.has_colors():
-            # Define some basic colors if available
-            curses.init_pair(1, curses.COLOR_CYAN, -1) # Selection
+            curses.init_pair(1, curses.COLOR_CYAN, -1)
         
         selected_idx = 0
         
@@ -81,9 +80,38 @@ def run_tui(matches):
                 selected_idx = min(len(matches) - 1, selected_idx + 1)
             elif key in (curses.KEY_ENTER, 10, 13):
                 return matches[selected_idx]
-            elif key in (ord('q'), 27): # 'q' or Esc
+            elif key in (ord('q'), 27):
                 return None
             elif key == curses.KEY_RESIZE:
                 stdscr.clear()
 
-    return curses.wrapper(main)
+    import sys
+    # Initialize curses on stderr to keep stdout clean for the shell
+    # This keeps drawing out of shell variables like RESULT=$(proton-t interactive)
+    try:
+        # Create a new terminal on stderr
+        screen = curses.newterm(None, sys.stderr, sys.stdin)
+        curses.set_term(screen)
+        
+        # Manually setup curses parameters as curses.wrapper(main) would
+        curses.noecho()
+        curses.cbreak()
+        stdscr = curses.initscr()
+        stdscr.keypad(True)
+        
+        result = main(stdscr)
+        
+        # Cleanup
+        stdscr.keypad(False)
+        curses.echo()
+        curses.nocbreak()
+        curses.endwin()
+        
+        return result
+    except Exception:
+        # Best effort cleanup
+        try:
+            curses.endwin()
+        except:
+            pass
+        return None
