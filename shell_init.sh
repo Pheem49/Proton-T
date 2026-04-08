@@ -26,6 +26,10 @@ ti() {
     fi
 }
 
+tl() {
+    proton-t ls "$@"
+}
+
 _proton_t_chpwd() {
     if command -v proton-t >/dev/null 2>&1; then
         proton-t add "$(pwd)"

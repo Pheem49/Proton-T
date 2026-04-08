@@ -31,6 +31,11 @@ function ti {
     }
 }
 
+function tl {
+    param([Parameter(ValueFromRemainingArguments=$true)]$Keywords)
+    proton-t ls $Keywords
+}
+
 # Hook to track directory changes
 if (-not (Get-Variable -Name "old_prompt" -ErrorAction SilentlyContinue)) {
     $Global:old_prompt = $ExecutionContext.InvokeCommand.GetCommand('prompt', 'Function')

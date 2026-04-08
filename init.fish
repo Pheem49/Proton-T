@@ -39,6 +39,10 @@ function ti --description 'Proton-T: Interactive directory selection'
     end
 end
 
+function tl --description 'Proton-T: Smart directory listing'
+    proton-t ls $argv
+end
+
 function __proton_t_add --on-variable PWD --description 'Proton-T: Track directory changes'
     set -l current_dir (pwd)
     proton-t add $current_dir >/dev/null 2>&1

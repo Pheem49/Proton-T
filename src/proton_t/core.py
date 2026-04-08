@@ -149,3 +149,47 @@ def get_all_matches(keywords):
 def list_paths():
     db, now = load_db(), time.time()
     return sorted([(p, get_score(e, now), e['score']) for p, e in db.items()], key=lambda x: x[1], reverse=True)
+
+def get_directory_preview(path, limit=20):
+    """Return a list of files and directories in the path for preview."""
+    try:
+        entries = []
+        with os.scandir(path) as it:
+            for entry in it:
+                prefix = "DIR  " if entry.is_dir() else "FILE "
+                name = entry.name
+                if name.startswith('.'): continue
+                if name in EXCLUDE_LIST: continue
+                entries.append(f"{prefix} {name}")
+        
+        # Sort so directories come first, then files
+        entries.sort()
+        return entries[:limit]
+    except Exception as e:
+        return [f"Error reading directory: {str(e)}"]
+
+def list_current_dir_with_scores():
+    """List entries in current directory with their frecency scores."""
+    db, now = load_db(), time.time()
+    results = []
+    try:
+        with os.scandir(os.getcwd()) as it:
+            for entry in it:
+                path = os.path.normpath(os.path.abspath(entry.path))
+                score = 0
+                is_tracked = False
+                if path in db:
+                    score = get_score(db[path], now)
+                    is_tracked = True
+                
+                results.append({
+                    'name': entry.name,
+                    'is_dir': entry.is_dir(),
+                    'score': score,
+                    'is_tracked': is_tracked
+                })
+        # Sort: directories first, then by name
+        results.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
+        return results
+    except Exception as e:
+        return []
