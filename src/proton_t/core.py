@@ -6,6 +6,23 @@ EXCLUDE_LIST = {
     'node_modules', '.git', '__pycache__', '.venv', '.next', '.pytest_cache', '.casbin'
 }
 
+PROJECT_MARKERS = ['.git', 'package.json', 'requirements.txt', 'Cargo.toml', 'go.mod', 'pom.xml', 'build.gradle']
+
+TAG_MAP = {
+    "backend": ["api", "server", "node", "backend", "go", "java"],
+    "frontend": ["ui", "react", "web", "frontend", "client", "next", "vue"],
+}
+
+def is_project(path):
+    try:
+        with os.scandir(path) as it:
+            for entry in it:
+                if entry.name in PROJECT_MARKERS:
+                    return True
+    except:
+        pass
+    return False
+
 def load_db():
     if not os.path.exists(DB_FILE): return {}
     try:
@@ -39,17 +56,24 @@ def add_path(path):
     path = os.path.normpath(os.path.abspath(path))
     if not os.path.isdir(path) or is_excluded(path): return
     db, now = load_db(), time.time()
+    
+    project_flag = is_project(path)
+    
     if path in db:
         db[path]['score'] += 1
         db[path]['last_access'] = now
+        db[path]['is_project'] = project_flag
     else:
-        db[path] = {'score': 1, 'last_access': now}
+        db[path] = {'score': 1, 'last_access': now, 'is_project': project_flag}
     save_db(db)
 
 def get_score(entry, now):
     score, last_access = entry['score'], entry['last_access']
     decay = math.exp(-(now - last_access) / 604800) 
-    return score * decay
+    final_score = score * decay
+    if entry.get('is_project'):
+        final_score *= 1.2
+    return final_score
 
 SEARCH_ROOTS = [
     os.path.expanduser("~"),
@@ -84,6 +108,56 @@ def fallback_search(keywords, max_depth=2, limit=10):
                 continue
     return found_paths
 
+def parse_intent(keywords):
+    kws = [k.lower() for k in keywords]
+    intent = {'recent': False, 'project': False, 'kws': [], 'tags': []}
+    
+    for kw in kws:
+        if kw in ['last', 'recent', 'latest', 'today']: intent['recent'] = True
+        elif kw in ['project', 'app', 'proj']: intent['project'] = True
+        else:
+            mapped = False
+            for tag, syns in TAG_MAP.items():
+                if kw in syns or kw == tag:
+                    intent['tags'].extend(syns)
+                    mapped = True
+            if not mapped: intent['kws'].append(kw)
+    return intent
+
+def match_with_intent(path, entry, intent, keywords, now):
+    # 1. Base fuzzy matching on remaining keywords
+    if intent['kws'] and not is_fuzzy_match(intent['kws'], path):
+        # Fallback: maybe they literally meant 'lastProject'
+        if not is_fuzzy_match(keywords, path):
+            return False, 0
+            
+    # 2. Tag matching
+    if intent['tags']:
+        if not any(t in path.lower() for t in intent['tags']):
+            return False, 0
+            
+    # 3. Project Filter
+    is_proj = entry.get('is_project', False)
+    if intent['project'] and not is_proj:
+        # Strict filter out if intent was project but this isn't
+        # Unless it literally matches the string e.g. folder named `my-project`
+        if 'project' not in path.lower():
+            return False, 0
+            
+    score = get_score(entry, now)
+    
+    # 4. Keyword boosting
+    basename = os.path.basename(path).lower()
+    if intent['kws'] and all(k.lower() in basename for k in intent['kws']):
+        score *= 10
+        
+    # 5. Recency boost
+    if intent['recent']:
+        time_diff = max(1, now - entry['last_access'])
+        score = (1.0 / time_diff) * 1e9  # Massive override for recent
+        
+    return True, score
+
 def query_paths(keywords):
     if not keywords: return None
     
@@ -96,14 +170,12 @@ def query_paths(keywords):
     # 2. Database search with fuzzy matching
     db, now = load_db(), time.time()
     matches = []
+    
+    intent = parse_intent(keywords)
 
     for path, entry in db.items():
-        if is_fuzzy_match(keywords, path):
-            score = get_score(entry, now)
-            # Boost exact substring matches in basename
-            basename = os.path.basename(path).lower()
-            if all(k.lower() in basename for k in keywords):
-                score *= 10
+        matched, score = match_with_intent(path, entry, intent, keywords, now)
+        if matched:
             matches.append((path, score))
     
     if matches:
@@ -125,14 +197,13 @@ def get_all_matches(keywords):
     
     db, now = load_db(), time.time()
     matches = []
+    
+    intent = parse_intent(keywords)
 
     for path, entry in db.items():
-        if is_fuzzy_match(keywords, path):
-            if is_excluded(path): continue
-            score = get_score(entry, now)
-            basename = os.path.basename(path).lower()
-            if all(k.lower() in basename for k in keywords):
-                score *= 10
+        if is_excluded(path): continue
+        matched, score = match_with_intent(path, entry, intent, keywords, now)
+        if matched:
             matches.append((path, score))
     
     matches.sort(key=lambda x: x[1], reverse=True)
@@ -148,4 +219,4 @@ def get_all_matches(keywords):
 
 def list_paths():
     db, now = load_db(), time.time()
-    return sorted([(p, get_score(e, now), e['score']) for p, e in db.items()], key=lambda x: x[1], reverse=True)
+    return [(p, get_score(e, now), e) for p, e in db.items()]

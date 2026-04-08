@@ -16,18 +16,77 @@ def main():
         if res: print(res)
         else: sys.exit(1)
     elif args.command == "list":
-        for p, r, s in core.list_paths(): print(f"{r:.2f}\t{s}\t{p}")
+        all_paths = core.list_paths()
+        if not all_paths: return
+        
+        projects = [p for p in all_paths if p[2].get('is_project')]
+        projects.sort(key=lambda x: x[1], reverse=True)
+        recent = sorted(all_paths, key=lambda x: x[2]['last_access'], reverse=True)
+        frequent = sorted(all_paths, key=lambda x: x[2]['score'], reverse=True)
+        
+        shown = set()
+        def print_section(title, items):
+            count = 0
+            has_title = False
+            for p, r, e in items:
+                if count >= 3: break
+                if p not in shown:
+                    if not has_title:
+                        print(f"\n{title}")
+                        has_title = True
+                    print(f"  - {p}")
+                    shown.add(p)
+                    count += 1
+        
+        print_section("[Suggested Projects]", projects)
+        print_section("[Recent Paths]", recent)
+        print_section("[Frequent Paths]", frequent)
+        print("") # Final newline
+        
     elif args.command == "interactive":
-        matches = core.get_all_matches(args.keywords) if args.keywords else [p for p, r, s in core.list_paths()[:10]]
+        all_paths = core.list_paths()
+        valid_keywords = [k for k in args.keywords if k.strip()]
+        
+        if valid_keywords:
+            matches = core.get_all_matches(valid_keywords)
+        else:
+            matches = []
+            
+        if not matches and not valid_keywords and all_paths:
+            # Grouped interactive
+            projects = [p for p in all_paths if p[2].get('is_project')]
+            projects.sort(key=lambda x: x[1], reverse=True)
+            recent = sorted(all_paths, key=lambda x: x[2]['last_access'], reverse=True)
+            frequent = sorted(all_paths, key=lambda x: x[2]['score'], reverse=True)
+            
+            sys.stderr.write("Select directory:\n")
+            def add_menu_section(title, items):
+                count = 0
+                has_title = False
+                for p, r, e in items:
+                    if count >= 3: break
+                    if p not in matches:
+                        if not has_title:
+                            sys.stderr.write(f"\n{title}\n")
+                            has_title = True
+                        matches.append(p)
+                        sys.stderr.write(f"  {len(matches)}) {p}\n")
+                        count += 1
+            
+            add_menu_section("[Suggested Projects]", projects)
+            add_menu_section("[Recent Paths]", recent)
+            add_menu_section("[Frequent Paths]", frequent)
+        elif matches:
+            sys.stderr.write("Select directory:\n")
+            for i, path in enumerate(matches[:10], 1):
+                sys.stderr.write(f"  {i}) {path}\n")
+        
         if not matches: sys.exit(1)
         
-        if len(matches) == 1:
+        if len(matches) == 1 and args.keywords:
             print(matches[0])
             return
 
-        sys.stderr.write("Select directory:\n")
-        for i, path in enumerate(matches[:10], 1):
-            sys.stderr.write(f"  {i}) {path}\n")
         sys.stderr.write(f"\nSelection [1-{min(len(matches), 10)}, q to quit]: ")
         sys.stderr.flush()
         
