@@ -25,13 +25,13 @@ def draw_menu(stdscr, selected_idx, matches):
     for i, path in enumerate(matches[:h-3]):
         y = i + 1
         if i == selected_idx:
-            stdscr.attron(curses.A_HIGHLIGHT)
+            stdscr.attron(curses.A_REVERSE)
             # Truncate and pad
             display_text = f"> {path}"
             if len(display_text) > list_w - 1:
                 display_text = display_text[:list_w-4] + "..."
             stdscr.addstr(y, 1, display_text.ljust(list_w - 1))
-            stdscr.attroff(curses.A_HIGHLIGHT)
+            stdscr.attroff(curses.A_REVERSE)
         else:
             display_text = f"  {path}"
             if len(display_text) > list_w - 1:
@@ -39,15 +39,20 @@ def draw_menu(stdscr, selected_idx, matches):
             stdscr.addstr(y, 1, display_text[:list_w-1])
 
     # Draw Preview
-    if matches and selected_idx < len(matches):
-        selected_path = matches[selected_idx]
-        stdscr.addstr(1, list_w + 2, f"Preview: {os.path.basename(selected_path)}"[:preview_w], curses.A_BOLD)
-        stdscr.addstr(2, list_w + 2, "─" * (min(preview_w, len(selected_path) + 9)))
-        
-        preview_items = core.get_directory_preview(selected_path, limit=h-5)
-        for i, item in enumerate(preview_items):
-            if 3 + i < h - 1:
-                stdscr.addstr(3 + i, list_w + 2, item[:preview_w])
+    try:
+        if matches and selected_idx < len(matches):
+            selected_path = matches[selected_idx]
+            if 1 < h - 1:
+                stdscr.addstr(1, list_w + 2, f"Preview: {os.path.basename(selected_path)}"[:preview_w], curses.A_BOLD)
+            if 2 < h - 1:
+                stdscr.addstr(2, list_w + 2, "─" * (min(preview_w, len(os.path.basename(selected_path)) + 9)))
+            
+            preview_items = core.get_directory_preview(selected_path, limit=h-5)
+            for i, item in enumerate(preview_items):
+                if 3 + i < h - 1:
+                    stdscr.addstr(3 + i, list_w + 2, item[:preview_w])
+    except curses.error:
+        pass # Ignore errors from drawing out of bounds
 
     stdscr.refresh()
 
