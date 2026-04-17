@@ -1,12 +1,50 @@
 import os, time, math, json
 
 DB_FILE = os.path.expanduser("~/.proton_t_db.json")
-MAX_ENTRIES = 1000
-EXCLUDE_LIST = {
-    'node_modules', '.git', '__pycache__', '.venv', '.next', '.pytest_cache', '.casbin'
+CONFIG_DIR = os.path.expanduser("~/.config/proton-t")
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
+
+DEFAULT_CONFIG = {
+    "search_roots": [
+        "~",
+        "~/Downloads",
+        "~/Documents",
+        "~/Desktop"
+    ],
+    "max_entries": 1000,
+    "exclude_list": [
+        "node_modules", ".git", "__pycache__", ".venv", ".next", ".pytest_cache", ".casbin"
+    ],
+    "project_markers": [
+        ".git", "package.json", "requirements.txt", "Cargo.toml", "go.mod", "pom.xml", "build.gradle"
+    ]
 }
 
-PROJECT_MARKERS = ['.git', 'package.json', 'requirements.txt', 'Cargo.toml', 'go.mod', 'pom.xml', 'build.gradle']
+def load_config():
+    if not os.path.exists(CONFIG_DIR):
+        try: os.makedirs(CONFIG_DIR, exist_ok=True)
+        except OSError: pass
+    
+    if not os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(DEFAULT_CONFIG, f, indent=2)
+        except OSError: pass
+        return DEFAULT_CONFIG
+        
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            user_config = json.load(f)
+            config = DEFAULT_CONFIG.copy()
+            config.update(user_config)
+            return config
+    except (json.JSONDecodeError, OSError):
+        return DEFAULT_CONFIG
+
+config = load_config()
+MAX_ENTRIES = config.get("max_entries", 1000)
+EXCLUDE_LIST = set(config.get("exclude_list", DEFAULT_CONFIG["exclude_list"]))
+PROJECT_MARKERS = config.get("project_markers", DEFAULT_CONFIG["project_markers"])
 
 TAG_MAP = {
     "backend": ["api", "server", "node", "backend", "go", "java"],
@@ -19,7 +57,7 @@ def is_project(path):
             for entry in it:
                 if entry.name in PROJECT_MARKERS:
                     return True
-    except:
+    except (OSError, PermissionError):
         pass
     return False
 
@@ -27,7 +65,7 @@ def load_db():
     if not os.path.exists(DB_FILE): return {}
     try:
         with open(DB_FILE, 'r') as f: return json.load(f)
-    except: return {}
+    except (json.JSONDecodeError, OSError): return {}
 
 def save_db(data):
     if len(data) > MAX_ENTRIES:
@@ -75,15 +113,15 @@ def get_score(entry, now):
         final_score *= 1.2
     return final_score
 
-SEARCH_ROOTS = [
-    os.path.expanduser("~"),
-    os.path.expanduser("~/Downloads"),
-    os.path.expanduser("~/Documents"),
-    os.path.expanduser("~/vscode/Project"),
-    os.path.expanduser("~/Desktop")
-]
-# Clean and unique roots, normalized for current OS
-SEARCH_ROOTS = sorted(list(set([os.path.normpath(r) for r in SEARCH_ROOTS if os.path.isdir(r)])))
+def _init_search_roots():
+    roots = []
+    for r in config.get("search_roots", DEFAULT_CONFIG["search_roots"]):
+        path = os.path.expanduser(r)
+        if os.path.isdir(path):
+            roots.append(os.path.normpath(path))
+    return sorted(list(set(roots)))
+
+SEARCH_ROOTS = _init_search_roots()
 
 def fallback_search(keywords, max_depth=2, limit=10):
     """Scan common folders and return ALL matching directories."""
@@ -220,3 +258,25 @@ def get_all_matches(keywords):
 def list_paths():
     db, now = load_db(), time.time()
     return [(p, get_score(e, now), e) for p, e in db.items()]
+
+def remove_path(path):
+    path = os.path.normpath(os.path.abspath(path))
+    db = load_db()
+    if path in db:
+        del db[path]
+        save_db(db)
+        return True
+    return False
+
+def clean_db():
+    db = load_db()
+    to_remove = []
+    for path in db:
+        if not os.path.isdir(path):
+            to_remove.append(path)
+    for path in to_remove:
+        del db[path]
+    if to_remove:
+        save_db(db)
+    return len(to_remove)
+

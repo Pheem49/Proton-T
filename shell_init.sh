@@ -21,7 +21,7 @@ ti() {
     # If keywords are provided, use them; otherwise show top visited
     RESULT=$(proton-t interactive "$@")
     if [ -n "$RESULT" ]; then
-        [ "$_ZO_ECHO" = "1" ] && echo "$RESULT"
+        [ "$_PT_ECHO" = "1" ] && echo "$RESULT"
         cd "$RESULT"
     fi
 }
