@@ -1,5 +1,6 @@
 # Proton-T
 [![Built with Rust](https://img.shields.io/badge/Built%20with-Rust-orange.svg)](https://www.rust-lang.org/)
+[![Crates.io](https://img.shields.io/crates/v/proton-t.svg)](https://crates.io/crates/proton-t)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Proton-T is a smarter `cd` command**
@@ -61,12 +62,13 @@ iex (Invoke-RestMethod https://raw.githubusercontent.com/Pheem49/Proton-T/main/i
 > [!NOTE]
 > On Windows, you might need to run: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser` before running the installer script.
 
-### 2. Manual Installation via Cargo
+### 2. Manual Installation via Cargo (Crates.io)
 
-If you have Rust installed on your machine, you can compile and install Proton-T directly via Cargo:
+If you have Rust installed on your machine, you can install Proton-T directly from crates.io:
 ```bash
-cargo install --path .
+cargo install proton-t
 ```
+*(Alternatively, if installing from a local clone, run: `cargo install --path .`)*
 
 ### 3. Setup Proton-T on your shell
 
