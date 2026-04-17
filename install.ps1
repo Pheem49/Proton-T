@@ -4,7 +4,7 @@ $REPO_URL = "https://github.com/Pheem49/Proton-T.git"
 $INSTALL_DIR = Join-Path $HOME ".proton-t"
 
 # 1. Bootstrap: If not in the project folder, clone it to ~/.proton-t
-if (-not (Test-Path "pyproject.toml")) {
+if (-not (Test-Path "Cargo.toml")) {
     if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
         Write-Host "Error: git is not installed." -ForegroundColor Red
         return
@@ -22,9 +22,13 @@ if (-not (Test-Path "pyproject.toml")) {
 $PROJECT_DIR = $PWD.Path
 $INIT_SCRIPT = Join-Path $PROJECT_DIR "init.ps1"
 
-# 2. Install as Python Package
-Write-Host "Installing Python package..."
-pip install . --user
+# 2. Install as Rust Binary
+Write-Host "Installing Rust binary..."
+if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
+    Write-Host "Rust is not installed. Please install Rust from https://rustup.rs/ before running this script." -ForegroundColor Red
+    return
+}
+cargo install --path .
 
 # 3. Integration in PowerShell Profile (Avoid duplicates)
 if (-not $PROFILE) {

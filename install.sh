@@ -5,7 +5,7 @@ REPO_URL="https://github.com/Pheem49/Proton-T.git"
 INSTALL_DIR="$HOME/.proton-t"
 
 # Bootstrap: If not in the project folder, clone it to ~/.proton-t
-if [ ! -f "pyproject.toml" ]; then
+if [ ! -f "Cargo.toml" ]; then
     if ! command -v git >/dev/null 2>&1; then
         echo "Error: git is not installed."
         exit 1
@@ -24,8 +24,20 @@ SHELL_INIT="$PROJECT_DIR/shell_init.sh"
 BASHRC="$HOME/.bashrc"
 
 echo "Installing Proton-T..."
-# Install as Python Package
-pip install "$PROJECT_DIR" --user --break-system-packages 2>/dev/null || pip install "$PROJECT_DIR" --user
+# Install as Rust Binary
+if ! command -v cargo >/dev/null 2>&1; then
+    # Try sourcing cargo env in case it's installed but not in PATH
+    if [ -f "$HOME/.cargo/env" ]; then
+        source "$HOME/.cargo/env"
+    fi
+fi
+
+if ! command -v cargo >/dev/null 2>&1; then
+    echo "Rust is not installed. Installing Rust..."
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    source "$HOME/.cargo/env"
+fi
+cargo install --path "$PROJECT_DIR"
 
 # Integration in .bashrc (Avoid duplicates)
 if ! grep -qF "source $SHELL_INIT" "$BASHRC"; then
