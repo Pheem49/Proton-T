@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proton-T - The Smarter cd Command</title>
+    <meta name="description"
+        content="Proton-T is an ultra-fast, Rust-based smart cd command that learns your habits and intelligently navigates directories using Frecency and Intents.">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=Fira+Code:wght@400;500&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <div class="glow-blob glow-1"></div>
+    <div class="glow-blob glow-2"></div>
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">Proton-T ⚡</div>
+            <div class="nav-links">
+                <a href="https://github.com/Pheem49/Proton-T" target="_blank" class="nav-link">GitHub</a>
+                <a href="https://crates.io/crates/proton-t" target="_blank" class="nav-link">Crates.io</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <h1 class="hero-title">Navigate your terminal <br><span class="highlight">at the speed of
+                        thought.</span></h1>
+                <p class="hero-subtitle">Proton-T is a smarter <code>cd</code> command, rewritten in ultra-fast Rust. It
+                    learns your CLI habits and uses Frecency & Intent matching to jump to the right directory instantly.
+                </p>
+                <div class="hero-cta">
+                    <a href="#installation" class="btn btn-primary">Get Started</a>
+                    <a href="https://github.com/Pheem49/Proton-T" target="_blank" class="btn btn-secondary">View
+                        Source</a>
+                </div>
+            </div>
+
+            <div class="terminal-window">
+                <div class="terminal-header">
+                    <span class="mac-btn close"></span>
+                    <span class="mac-btn min"></span>
+                    <span class="mac-btn exp"></span>
+                    <div class="terminal-title">bash - proton-t</div>
+                </div>
+                <div class="terminal-body" id="terminal-body">
+                    <!-- Typing animation JS will insert here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <section class="features">
+        <div class="features-container">
+            <h2 class="section-title">Why Proton-T?</h2>
+            <div class="feature-grid">
+                <div class="feature-card glass">
+                    <div class="feature-icon">🦀</div>
+                    <h3 class="feature-title">Powered by Rust</h3>
+                    <p class="feature-desc">Zero dependencies. <10ms execution time. Noticeably faster than Python
+                            equivalents, ensuring your shell remains extremely responsive.</p>
+                </div>
+                <div class="feature-card glass">
+                    <div class="feature-icon">🧠</div>
+                    <h3 class="feature-title">Frecency Algorithm</h3>
+                    <p class="feature-desc">Balances frequency (most used) with recency (recently used). Projects you
+                        haven't touched in a week gracefully decay in rank.</p>
+                </div>
+                <div class="feature-card glass">
+                    <div class="feature-icon">🎯</div>
+                    <h3 class="feature-title">Intent Engine</h3>
+                    <p class="feature-desc">Speak naturally to your shell. Typing <code>t project</code> or
+                        <code>t backend</code> instantly maps your intent to specific folder types.
+                    </p>
+                </div>
+                <div class="feature-card glass">
+                    <div class="feature-icon">🔍</div>
+                    <h3 class="feature-title">Fallback Discovery</h3>
+                    <p class="feature-desc">Never visited a folder? Proton-T automatically scans your roots
+                        breadth-first to find it, booking it for future instant access.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="installation" class="installation">
+        <div class="install-container">
+            <h2 class="section-title">Install in seconds</h2>
+
+            <h3 class="install-subtitle">Choose Installation Method</h3>
+            <div class="code-grid">
+
+                <div class="code-card">
+                    <div class="code-card-title">Linux / macOS</div>
+                    <div class="terminal-mockup">
+                        <div class="terminal-mockup-header">
+                            <span class="mac-btn close"></span><span class="mac-btn min"></span><span
+                                class="mac-btn exp"></span>
+                            <span class="terminal-mockup-title">bash</span>
+                            <button class="copy-btn" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                                    fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="terminal-mockup-body">
+                            <code>curl -sSfL https://raw.githubusercontent.com/Pheem49/Proton-T/main/install.sh | sh</code>
+                        </div>
+                    </div>
+                    <div class="code-caption">Recommended for UNIX systems. Auto-installs Rust.</div>
+                </div>
+
+                <div class="code-card">
+                    <div class="code-card-title">Windows</div>
+                    <div class="terminal-mockup">
+                        <div class="terminal-mockup-header">
+                            <span class="mac-btn close"></span><span class="mac-btn min"></span><span
+                                class="mac-btn exp"></span>
+                            <span class="terminal-mockup-title">powershell</span>
+                            <button class="copy-btn" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                                    fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="terminal-mockup-body">
+                            <code>iex (Invoke-RestMethod https://raw.githubusercontent.com/Pheem49/Proton-T/main/install.ps1)</code>
+                        </div>
+                    </div>
+                    <div class="code-caption">Requires Set-ExecutionPolicy RemoteSigned -Scope CurrentUser</div>
+                </div>
+
+                <div class="code-card">
+                    <div class="code-card-title">All Platforms</div>
+                    <div class="terminal-mockup">
+                        <div class="terminal-mockup-header">
+                            <span class="mac-btn close"></span><span class="mac-btn min"></span><span
+                                class="mac-btn exp"></span>
+                            <span class="terminal-mockup-title">cargo</span>
+                            <button class="copy-btn" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                                    fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="terminal-mockup-body">
+                            <code>cargo install proton-t</code>
+                        </div>
+                    </div>
+                    <div class="code-caption">Requires Rust to be installed first</div>
+                </div>
+            </div>
+
+            <h3 class="install-subtitle">Shell Configuration</h3>
+            <p class="install-note">If you installed via script, this is handled automatically. If you installed
+                manually via Cargo, add these to your config:</p>
+
+            <div class="code-grid two-cols">
+
+                <div class="code-card">
+                    <div class="code-card-title">Bash / Zsh</div>
+                    <div class="terminal-mockup">
+                        <div class="terminal-mockup-header">
+                            <span class="mac-btn close"></span><span class="mac-btn min"></span><span
+                                class="mac-btn exp"></span>
+                            <span class="terminal-mockup-title">bash</span>
+                            <button class="copy-btn" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                                    fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="terminal-mockup-body">
+                            <code>source /path/to/Proton-T/shell_init.sh</code>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="code-card">
+                    <div class="code-card-title">Fish</div>
+                    <div class="terminal-mockup">
+                        <div class="terminal-mockup-header">
+                            <span class="mac-btn close"></span><span class="mac-btn min"></span><span
+                                class="mac-btn exp"></span>
+                            <span class="terminal-mockup-title">fish</span>
+                            <button class="copy-btn" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                                    fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="terminal-mockup-body">
+                            <code>source /path/to/Proton-T/init.fish</code>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="code-card">
+                    <div class="code-card-title">PowerShell</div>
+                    <div class="terminal-mockup">
+                        <div class="terminal-mockup-header">
+                            <span class="mac-btn close"></span><span class="mac-btn min"></span><span
+                                class="mac-btn exp"></span>
+                            <span class="terminal-mockup-title">powershell</span>
+                            <button class="copy-btn" title="Copy to clipboard">
+                                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+                                    fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="terminal-mockup-body">
+                            <code>. "C:\path\to\Proton-T\init.ps1"</code>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <p>Built with 🦀 and ☕ by Pheem49.</p>
+        <p>Licensed under MIT.</p>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+
+</html>

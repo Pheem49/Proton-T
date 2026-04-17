@@ -7,6 +7,8 @@
 
 It learns which directories you use most frequently, so you can "jump" to them in just a few keystrokes. Proton-T works on all major shells and uses a smart Frecency + Intent matching algorithm to understand your workflow.
 
+![Proton-T Interactive Preview](assets/preview.png)
+
 [Getting started](#getting-started) • [Installation](#installation) • [Configuration](#configuration)
 
 ---
