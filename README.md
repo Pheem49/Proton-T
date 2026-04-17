@@ -9,7 +9,7 @@ It learns which directories you use most frequently, so you can "jump" to them i
 
 ![Proton-T Interactive Preview](assets/preview.png)
 
-[Getting started](#getting-started) • [Installation](#installation) • [Configuration](#configuration)
+[Live Website](https://pheem49.github.io/Proton-T/) • [Getting started](#getting-started) • [Installation](#installation) • [Configuration](#configuration)
 
 ---
 
