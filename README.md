@@ -26,6 +26,7 @@ Proton-T uses simple commands to jump into directories or manage your database.
 | `t backend` | Tag mapping | cd into directories tagged 'api', 'server', 'node', etc. |
 | `t ..` | Go up | cd one level up |
 | `t -` | Go back | cd into previous directory |
+| `t <query><TAB>`| Tab completion | Autocomplete directory names from your database |
 | `ti` | Interactive menu | Show interactive numbered menu of suggested projects and recent paths |
 | `ti <query>` | Interactive search | cd with interactive selection matching the query |
 | `proton-t list` | View rankings | View current directory rankings |
@@ -125,3 +126,4 @@ Proton-T is designed to calculate intents, not just matching strings.
 - **Intent Engine:** Speak to your terminal. `t recent project` computes "What was that project I touched yesterday?" and instantly jumps there.
 - **Project Awareness:** Projects (detected via `project_markers`) receive a **1.2x** algorithm boost naturally over regular folders.
 - **Smart Fallback Discovery:** Never visited a folder? Proton-T scans your common `search_roots` breadth-first to find and bookmark matching new directories on the fly.
+- **Tab Completion:** Pressing Tab after `t` keywords will suggest matching directory names based on your history and search roots.

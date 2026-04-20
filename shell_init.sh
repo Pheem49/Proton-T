@@ -32,8 +32,22 @@ _proton_t_chpwd() {
     fi
 }
 
+_proton_t_complete() {
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    local completions=$(proton-t complete "$cur")
+    COMPREPLY=( $(compgen -W "$completions" -- "$cur") )
+}
+
 if [ -n "$BASH_VERSION" ]; then
     [[ ! "$PROMPT_COMMAND" =~ "_proton_t_chpwd" ]] && PROMPT_COMMAND="_proton_t_chpwd; $PROMPT_COMMAND"
+    complete -F _proton_t_complete t
 elif [ -n "$ZSH_VERSION" ]; then
     autoload -U add-zsh-hook; add-zsh-hook chpwd _proton_t_chpwd; _proton_t_chpwd
+    
+    _proton_t_zsh_complete() {
+        local -a matches
+        matches=(${(f)"$(proton-t complete "${words[@]:1}")"})
+        _describe 'directories' matches
+    }
+    compdef _proton_t_zsh_complete t
 fi

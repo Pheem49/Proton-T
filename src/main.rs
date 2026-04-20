@@ -30,6 +30,8 @@ enum Commands {
     Remove { path: String },
     /// Remove invalid directories from the tracking database
     Clean,
+    /// Generate completions for the given keywords
+    Complete { keywords: Vec<String> },
 }
 
 fn print_preview(path: &str, config: &config::Config) {
@@ -473,6 +475,19 @@ fn main() {
                 db::save_db(db, config.max_entries);
             }
             println!("{} {} invalid paths from the database.", "Cleaned".green(), count);
+        }
+        Commands::Complete { keywords } => {
+            let results = get_all_matches(&keywords, &config);
+            let mut seen = std::collections::HashSet::new();
+            for path in results {
+                if let Some(name) = Path::new(&path).file_name() {
+                    let name_str = name.to_string_lossy().to_string();
+                    if !seen.contains(&name_str) {
+                        println!("{}", name_str);
+                        seen.insert(name_str);
+                    }
+                }
+            }
         }
     }
 }

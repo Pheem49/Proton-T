@@ -48,3 +48,12 @@ function Global:prompt {
         "PS $($executionContext.SessionState.Path.CurrentLocation)> "
     }
 }
+
+# Completion
+Register-ArgumentCompleter -CommandName t -ParameterName Keywords -ScriptBlock {
+    param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
+    $completions = proton-t complete $wordToComplete
+    $completions | ForEach-Object {
+        [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+    }
+}

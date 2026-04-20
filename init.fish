@@ -43,3 +43,6 @@ function __proton_t_add --on-variable PWD --description 'Proton-T: Track directo
     set -l current_dir (pwd)
     proton-t add $current_dir >/dev/null 2>&1
 end
+
+# Completion
+complete -c t -f -a "(proton-t complete (commandline -opc)[2..-1])"

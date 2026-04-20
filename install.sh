@@ -39,9 +39,19 @@ if ! command -v cargo >/dev/null 2>&1; then
 fi
 cargo install --path "$PROJECT_DIR"
 
-# Integration in .bashrc (Avoid duplicates)
-if ! grep -qF "source $SHELL_INIT" "$BASHRC"; then
-    printf "\n# Proton-T Integration\nsource %s\n" "$SHELL_INIT" >> "$BASHRC"
+# Integration in .bashrc
+if [ -f "$BASHRC" ]; then
+    if ! grep -qF "source $SHELL_INIT" "$BASHRC"; then
+        printf "\n# Proton-T Integration\nsource %s\n" "$SHELL_INIT" >> "$BASHRC"
+    fi
+fi
+
+# Integration in .zshrc
+ZSHRC="$HOME/.zshrc"
+if [ -f "$ZSHRC" ]; then
+    if ! grep -qF "source $SHELL_INIT" "$ZSHRC"; then
+        printf "\n# Proton-T Integration\nsource %s\n" "$SHELL_INIT" >> "$ZSHRC"
+    fi
 fi
 
 # Integration in config.fish
