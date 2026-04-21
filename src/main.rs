@@ -10,7 +10,11 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Parser)]
-#[command(name = "proton-t", version, about = "A smarter cd command with frecency and fallback search")]
+#[command(
+    name = "proton-t",
+    version,
+    about = "A smarter cd command with frecency and fallback search"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -69,13 +73,17 @@ fn print_preview(path: &str, config: &config::Config) {
         let limit = 7;
 
         for d in &dirs {
-            if printed >= limit { break; }
+            if printed >= limit {
+                break;
+            }
             eprintln!("  📁 {}", d.blue());
             printed += 1;
         }
 
         for f in &files {
-            if printed >= limit { break; }
+            if printed >= limit {
+                break;
+            }
             eprintln!("  📄 {}", f);
             printed += 1;
         }
@@ -100,6 +108,10 @@ fn is_project(path: &str, markers: &[String]) -> bool {
 }
 
 fn add_path(path_str: String, config: &config::Config) {
+    add_path_with_behavior(path_str, config, true);
+}
+
+fn add_path_with_behavior(path_str: String, config: &config::Config, revive_removed: bool) {
     let p = Path::new(&path_str);
     if !p.is_dir() {
         return;
@@ -122,6 +134,12 @@ fn add_path(path_str: String, config: &config::Config) {
     let proj_flag = is_project(&abs_path, &config.project_markers);
 
     if let Some(entry) = db.get_mut(&abs_path) {
+        if entry.removed {
+            if !revive_removed {
+                return;
+            }
+            entry.removed = false;
+        }
         entry.score += 1.0;
         entry.last_access = now;
         entry.is_project = proj_flag;
@@ -132,6 +150,7 @@ fn add_path(path_str: String, config: &config::Config) {
                 score: 1.0,
                 last_access: now,
                 is_project: proj_flag,
+                removed: false,
             },
         );
     }
@@ -139,16 +158,24 @@ fn add_path(path_str: String, config: &config::Config) {
     db::save_db(db, config.max_entries);
 }
 
+fn filter_removed_paths(
+    paths: Vec<String>,
+    entries: &std::collections::HashMap<String, db::Entry>,
+) -> Vec<String> {
+    paths
+        .into_iter()
+        .filter(|path| {
+            !entries
+                .get(path)
+                .map(|entry| entry.removed)
+                .unwrap_or(false)
+        })
+        .collect()
+}
+
 fn query_paths(keywords: &[String], config: &config::Config) -> Option<String> {
     if keywords.is_empty() {
         return None;
-    }
-
-    let full_search = keywords.join(" ");
-    if let Ok(p) = fs::canonicalize(PathBuf::from(&full_search)) {
-        if p.is_dir() {
-            return Some(p.to_string_lossy().into_owned());
-        }
     }
 
     let db = db::load_db();
@@ -158,9 +185,23 @@ fn query_paths(keywords: &[String], config: &config::Config) -> Option<String> {
         .as_secs_f64();
     let intent = search::parse_intent(keywords);
 
+    let full_search = keywords.join(" ");
+    if let Ok(p) = fs::canonicalize(PathBuf::from(&full_search)) {
+        if p.is_dir() {
+            let path = p.to_string_lossy().into_owned();
+            if !db.get(&path).map(|entry| entry.removed).unwrap_or(false) {
+                return Some(path);
+            }
+        }
+    }
+
     let mut matches = Vec::new();
     for (path, entry) in &db {
-        let (matched, score) = search::match_with_intent(path, entry, &intent, keywords, now);
+        if entry.removed {
+            continue;
+        }
+        let (matched, score) =
+            search::match_with_intent(path, entry, &intent, &config.project_markers, keywords, now);
         if matched {
             matches.push((path.clone(), score));
         }
@@ -171,7 +212,17 @@ fn query_paths(keywords: &[String], config: &config::Config) -> Option<String> {
         return Some(matches[0].0.clone());
     }
 
-    let mut fallbacks = search::fallback_search(config, keywords, 2);
+    let mut fallbacks = if intent.project {
+        let project_matches = search::fallback_project_search(config, &intent, 2);
+        if project_matches.is_empty() {
+            search::fallback_search(config, keywords, 2)
+        } else {
+            project_matches
+        }
+    } else {
+        search::fallback_search(config, keywords, 2)
+    };
+    fallbacks = filter_removed_paths(fallbacks, &db);
     if !fallbacks.is_empty() {
         fallbacks.sort_by(|a, b| {
             let a_base = Path::new(a)
@@ -189,7 +240,7 @@ fn query_paths(keywords: &[String], config: &config::Config) -> Option<String> {
             b_match.cmp(&a_match)
         });
         let best = fallbacks.remove(0);
-        add_path(best.clone(), config);
+        add_path_with_behavior(best.clone(), config, false);
         return Some(best);
     }
 
@@ -211,11 +262,12 @@ fn get_all_matches(keywords: &[String], config: &config::Config) -> Vec<String> 
     let mut matches = Vec::new();
     for (path, entry) in &db {
         let parts: Vec<&str> = path.split(std::path::MAIN_SEPARATOR).collect();
-        if parts.iter().any(|part| config.exclude_list.contains(*part)) {
+        if parts.iter().any(|part| config.exclude_list.contains(*part)) || entry.removed {
             continue;
         }
 
-        let (matched, score) = search::match_with_intent(path, entry, &intent, keywords, now);
+        let (matched, score) =
+            search::match_with_intent(path, entry, &intent, &config.project_markers, keywords, now);
         if matched {
             matches.push((path.clone(), score));
         }
@@ -224,8 +276,13 @@ fn get_all_matches(keywords: &[String], config: &config::Config) -> Vec<String> 
     matches.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
     let mut results: Vec<String> = matches.into_iter().map(|m| m.0).collect();
 
-    let fallbacks = search::fallback_search(config, keywords, 10);
-    for f in fallbacks {
+    let mut fallbacks = if intent.project {
+        search::fallback_project_search(config, &intent, 10)
+    } else {
+        Vec::new()
+    };
+    fallbacks.extend(search::fallback_search(config, keywords, 10));
+    for f in filter_removed_paths(fallbacks, &db) {
         if !results.contains(&f) {
             results.push(f);
         }
@@ -257,11 +314,7 @@ fn print_section(
     }
 }
 
-fn add_menu_section(
-    title: &str,
-    items: &[(String, f64, db::Entry)],
-    matches: &mut Vec<String>,
-) {
+fn add_menu_section(title: &str, items: &[(String, f64, db::Entry)], matches: &mut Vec<String>) {
     let mut count = 0;
     let mut has_title = false;
     for (p, _, _) in items {
@@ -392,6 +445,7 @@ fn interactive_command(keywords: Vec<String>, config: &config::Config) {
     if matches.len() == 1 && !valid_keywords.is_empty() {
         print_preview(&matches[0], config);
         println!("{}", matches[0]);
+        add_path(matches[0].clone(), config);
         return;
     }
 
@@ -444,14 +498,28 @@ fn main() {
             let mut db = db::load_db();
             if let Ok(abs_path) = fs::canonicalize(&path) {
                 let p_str = abs_path.to_string_lossy().into_owned();
-                if db.contains_key(&p_str) {
-                    db.remove(&p_str);
-                    db::save_db(db, config.max_entries);
-                    println!("{} '{}' from database.", "Removed".green(), path);
-                    return;
-                }
+                let was_project = db
+                    .get(&p_str)
+                    .map(|entry| entry.is_project)
+                    .unwrap_or_else(|| is_project(&p_str, &config.project_markers));
+                db.insert(
+                    p_str,
+                    db::Entry {
+                        score: 0.0,
+                        last_access: 0.0,
+                        is_project: was_project,
+                        removed: true,
+                    },
+                );
+                db::save_db(db, config.max_entries);
+                println!("{} '{}' from database.", "Removed".green(), path);
+                return;
             } else if db.contains_key(&path) {
-                db.remove(&path);
+                if let Some(entry) = db.get_mut(&path) {
+                    entry.score = 0.0;
+                    entry.last_access = 0.0;
+                    entry.removed = true;
+                }
                 db::save_db(db, config.max_entries);
                 println!("{} '{}' from database.", "Removed".green(), path);
                 return;
@@ -474,7 +542,11 @@ fn main() {
             if count > 0 {
                 db::save_db(db, config.max_entries);
             }
-            println!("{} {} invalid paths from the database.", "Cleaned".green(), count);
+            println!(
+                "{} {} invalid paths from the database.",
+                "Cleaned".green(),
+                count
+            );
         }
         Commands::Complete { keywords } => {
             let results = get_all_matches(&keywords, &config);
@@ -489,5 +561,43 @@ fn main() {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::filter_removed_paths;
+    use crate::db::Entry;
+    use std::collections::HashMap;
+
+    #[test]
+    fn removed_paths_are_filtered_from_candidates() {
+        let entries = HashMap::from([
+            (
+                "/tmp/skip".to_string(),
+                Entry {
+                    score: 0.0,
+                    last_access: 0.0,
+                    is_project: false,
+                    removed: true,
+                },
+            ),
+            (
+                "/tmp/keep".to_string(),
+                Entry {
+                    score: 1.0,
+                    last_access: 1.0,
+                    is_project: false,
+                    removed: false,
+                },
+            ),
+        ]);
+
+        let filtered = filter_removed_paths(
+            vec!["/tmp/keep".to_string(), "/tmp/skip".to_string()],
+            &entries,
+        );
+
+        assert_eq!(filtered, vec!["/tmp/keep".to_string()]);
     }
 }

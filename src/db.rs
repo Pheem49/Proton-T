@@ -9,6 +9,8 @@ pub struct Entry {
     pub last_access: f64,
     #[serde(default)]
     pub is_project: bool,
+    #[serde(default)]
+    pub removed: bool,
 }
 
 pub fn load_db() -> HashMap<String, Entry> {
@@ -23,10 +25,7 @@ pub fn load_db() -> HashMap<String, Entry> {
     }
 
     match fs::read_to_string(&db_path) {
-        Ok(content) => match serde_json::from_str(&content) {
-            Ok(db) => db,
-            Err(_) => HashMap::new(),
-        },
+        Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
         Err(_) => HashMap::new(),
     }
 }
@@ -43,14 +42,26 @@ pub fn save_db(mut db: HashMap<String, Entry>, max_entries: usize) {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs_f64();
-        let mut entries: Vec<_> = db.into_iter().collect();
-        entries.sort_by(|a, b| {
+        let mut removed_entries = Vec::new();
+        let mut active_entries = Vec::new();
+        for item in db.into_iter() {
+            if item.1.removed {
+                removed_entries.push(item);
+            } else {
+                active_entries.push(item);
+            }
+        }
+        active_entries.sort_by(|a, b| {
             let score_b = get_score(&b.1, now);
             let score_a = get_score(&a.1, now);
-            score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+            score_b
+                .partial_cmp(&score_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
-        entries.truncate(max_entries);
-        db = entries.into_iter().collect();
+        let active_limit = max_entries.saturating_sub(removed_entries.len());
+        active_entries.truncate(active_limit);
+        removed_entries.extend(active_entries);
+        db = removed_entries.into_iter().collect();
     }
 
     if let Ok(json) = serde_json::to_string_pretty(&db) {

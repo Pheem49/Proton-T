@@ -33,13 +33,26 @@ _proton_t_chpwd() {
 }
 
 _proton_t_complete() {
+    local args=("${COMP_WORDS[@]:1:COMP_CWORD}")
     local cur=${COMP_WORDS[COMP_CWORD]}
-    local completions=$(proton-t complete "$cur")
-    COMPREPLY=( $(compgen -W "$completions" -- "$cur") )
+    local completions
+
+    if [ ${#args[@]} -eq 0 ]; then
+        completions=$(proton-t complete "$cur")
+    else
+        completions=$(proton-t complete "${args[@]}")
+    fi
+
+    mapfile -t COMPREPLY < <(printf '%s\n' "$completions" | sed '/^$/d')
 }
 
 if [ -n "$BASH_VERSION" ]; then
-    [[ ! "$PROMPT_COMMAND" =~ "_proton_t_chpwd" ]] && PROMPT_COMMAND="_proton_t_chpwd; $PROMPT_COMMAND"
+    cd() {
+        builtin cd "$@" || return
+        _proton_t_chpwd
+    }
+
+    _proton_t_chpwd
     complete -F _proton_t_complete t
 elif [ -n "$ZSH_VERSION" ]; then
     autoload -U add-zsh-hook; add-zsh-hook chpwd _proton_t_chpwd; _proton_t_chpwd

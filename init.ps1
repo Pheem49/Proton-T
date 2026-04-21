@@ -31,28 +31,46 @@ function ti {
     }
 }
 
-# Hook to track directory changes
-if (-not (Get-Variable -Name "old_prompt" -ErrorAction SilentlyContinue)) {
-    $Global:old_prompt = $ExecutionContext.InvokeCommand.GetCommand('prompt', 'Function')
+function Global:Set-Location {
+    [CmdletBinding(DefaultParameterSetName='Path', SupportsTransactions=$true)]
+    param(
+        [Parameter(ParameterSetName='Path', Position=0, ValueFromPipelineByPropertyName=$true)]
+        [string]$Path,
+
+        [Parameter(ParameterSetName='LiteralPath', Mandatory=$true, ValueFromPipelineByPropertyName=$true)]
+        [string]$LiteralPath,
+
+        [switch]$PassThru,
+        [string]$StackName
+    )
+
+    if ($PSCmdlet.ParameterSetName -eq 'LiteralPath') {
+        Microsoft.PowerShell.Management\Set-Location -LiteralPath $LiteralPath -PassThru:$PassThru -StackName $StackName
+    } else {
+        Microsoft.PowerShell.Management\Set-Location -Path $Path -PassThru:$PassThru -StackName $StackName
+    }
+
+    try {
+        proton-t add "$PWD" | Out-Null
+    } catch {}
 }
 
-function Global:prompt {
-    # Run the tracker silently
-    try {
-        proton-t add "$PWD"
-    } catch {}
-    
-    if ($Global:old_prompt) {
-        & $Global:old_prompt
-    } else {
-        "PS $($executionContext.SessionState.Path.CurrentLocation)> "
-    }
-}
+try { proton-t add "$PWD" | Out-Null } catch {}
 
 # Completion
 Register-ArgumentCompleter -CommandName t -ParameterName Keywords -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
-    $completions = proton-t complete $wordToComplete
+    $keywords = @($commandAst.CommandElements | Select-Object -Skip 1 | ForEach-Object { $_.Extent.Text })
+    if ($keywords.Count -eq 0 -and $wordToComplete) {
+        $keywords = @($wordToComplete)
+    }
+
+    $completions = if ($keywords.Count -gt 0) {
+        proton-t complete $keywords
+    } else {
+        proton-t complete
+    }
+
     $completions | ForEach-Object {
         [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
     }
