@@ -248,23 +248,15 @@ fn query_paths(keywords: &[String], config: &config::Config) -> Option<String> {
 }
 
 fn get_all_matches(keywords: &[String], config: &config::Config) -> Vec<String> {
+    if keywords.is_empty() {
+        return Vec::new();
+    }
+
     let db = db::load_db();
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs_f64();
-
-    if keywords.is_empty() {
-        let mut all: Vec<_> = db
-            .into_iter()
-            .filter(|(path, entry)| {
-                !entry.removed && !path.split(std::path::MAIN_SEPARATOR).any(|part| config.exclude_list.contains(part))
-            })
-            .map(|(p, e)| (p, db::get_score(&e, now)))
-            .collect();
-        all.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-        return all.into_iter().take(10).map(|(p, _)| p).collect();
-    }
     let intent = search::parse_intent(keywords);
 
     let mut matches = Vec::new();
@@ -558,8 +550,15 @@ fn main() {
         }
         Commands::Complete { keywords } => {
             let results = get_all_matches(&keywords, &config);
+            let mut seen = std::collections::HashSet::new();
             for path in results {
-                println!("{}", path);
+                if let Some(name) = Path::new(&path).file_name() {
+                    let name_str = name.to_string_lossy().to_string();
+                    if !seen.contains(&name_str) {
+                        println!("{}", name_str);
+                        seen.insert(name_str);
+                    }
+                }
             }
         }
     }
