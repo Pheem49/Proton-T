@@ -42,9 +42,19 @@ if (-not (Test-Path $PROFILE)) {
     New-Item -ItemType File -Path $PROFILE -Force
 }
 
-$line = ". `"$INIT_SCRIPT`""
+$line = "proton-t init powershell | Out-String | Invoke-Expression"
 $content = Get-Content $PROFILE -ErrorAction SilentlyContinue
-if ($content -notcontains $line) {
+$found = $false
+if ($content) {
+    foreach ($c in $content) {
+        if ($c -like "*proton-t init powershell*") {
+            $found = $true
+            break
+        }
+    }
+}
+
+if (-not $found) {
     Add-Content -Path $PROFILE -Value "`n# Proton-T Integration`n$line"
     Write-Host "Updated PowerShell profile: $PROFILE" -ForegroundColor Green
 }

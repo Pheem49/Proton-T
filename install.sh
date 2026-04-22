@@ -41,29 +41,28 @@ cargo install --path "$PROJECT_DIR"
 
 # Integration in .bashrc
 if [ -f "$BASHRC" ]; then
-    if ! grep -qF "source $SHELL_INIT" "$BASHRC"; then
-        printf "\n# Proton-T Integration\nsource %s\n" "$SHELL_INIT" >> "$BASHRC"
+    if ! grep -qF "proton-t init bash" "$BASHRC"; then
+        printf "\n# Proton-T Integration\neval \"\$(proton-t init bash)\"\n" >> "$BASHRC"
     fi
 fi
 
 # Integration in .zshrc
 ZSHRC="$HOME/.zshrc"
 if [ -f "$ZSHRC" ]; then
-    if ! grep -qF "source $SHELL_INIT" "$ZSHRC"; then
-        printf "\n# Proton-T Integration\nsource %s\n" "$SHELL_INIT" >> "$ZSHRC"
+    if ! grep -qF "proton-t init zsh" "$ZSHRC"; then
+        printf "\n# Proton-T Integration\neval \"\$(proton-t init zsh)\"\n" >> "$ZSHRC"
     fi
 fi
 
 # Integration in config.fish
 FISH_CONFIG="$HOME/.config/fish/config.fish"
-FISH_INIT="$PROJECT_DIR/init.fish"
 if command -v fish >/dev/null 2>&1; then
     if [ ! -f "$FISH_CONFIG" ]; then
         mkdir -p "$(dirname "$FISH_CONFIG")"
         touch "$FISH_CONFIG"
     fi
-    if ! grep -qF "source $FISH_INIT" "$FISH_CONFIG"; then
-        printf "\n# Proton-T Integration\nsource %s\n" "$FISH_INIT" >> "$FISH_CONFIG"
+    if ! grep -qF "proton-t init fish" "$FISH_CONFIG"; then
+        printf "\n# Proton-T Integration\nproton-t init fish | source\n" >> "$FISH_CONFIG"
     fi
 fi
 

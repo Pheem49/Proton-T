@@ -76,22 +76,27 @@ cargo install proton-t
 ### 3. Setup Proton-T on your shell
 
 *Note: If you used the install scripts above, this step is handled automatically.*
-If you installed manually, you need to add Proton-T to your shell config file so it can inject the `t` and `ti` hooks.
+Proton-T requires shell integration to track your directory history and provide the `t` and `ti` commands. 
 
 **Bash / Zsh** (`~/.bashrc` or `~/.zshrc`)
 ```bash
-source /path/to/Proton-T/shell_init.sh
+# Add this to the end of your config file
+eval "$(proton-t init bash)"  # or zsh
 ```
 
 **Fish** (`~/.config/fish/config.fish`)
 ```fish
-source /path/to/Proton-T/init.fish
+proton-t init fish | source
 ```
 
 **PowerShell** (`$PROFILE`)
 ```powershell
-. "C:\path\to\Proton-T\init.ps1"
+proton-t init powershell | Out-String | Invoke-Expression
 ```
+
+> [!IMPORTANT]
+> **Why use `init`?** 
+> The `init` command is essential for Proton-T's **Frecency Engine**. It overrides the default `cd` behavior to automatically track and rank every directory you visit. Without this, the ranking algorithm won't have the data it needs to stay accurate.
 
 ---
 

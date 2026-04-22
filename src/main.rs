@@ -36,6 +36,8 @@ enum Commands {
     Clean,
     /// Generate completions for the given keywords
     Complete { keywords: Vec<String> },
+    /// Generate shell initialization script
+    Init { shell: String },
 }
 
 fn print_preview(path: &str, config: &config::Config) {
@@ -558,6 +560,23 @@ fn main() {
                         println!("{}", name_str);
                         seen.insert(name_str);
                     }
+                }
+            }
+        }
+        Commands::Init { shell } => {
+            match shell.to_lowercase().as_str() {
+                "bash" | "zsh" => {
+                    print!("{}", include_str!("../shell_init.sh"));
+                }
+                "fish" => {
+                    print!("{}", include_str!("../init.fish"));
+                }
+                "powershell" | "pwsh" => {
+                    print!("{}", include_str!("../init.ps1"));
+                }
+                _ => {
+                    eprintln!("Error: Unsupported shell '{}'. Supported shells: bash, zsh, fish, powershell", shell);
+                    std::process::exit(1);
                 }
             }
         }
