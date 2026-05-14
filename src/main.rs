@@ -5,7 +5,6 @@ mod search;
 use clap::{Parser, Subcommand};
 use colored::*;
 use std::fs;
-use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -301,7 +300,7 @@ fn print_section(
     let mut count = 0;
     let mut has_title = false;
     for (p, _, _) in items {
-        if count >= 3 {
+        if count >= 5 {
             break;
         }
         if !shown.contains(p) {
@@ -311,25 +310,6 @@ fn print_section(
             }
             println!("  - {}", p.green());
             shown.insert(p.clone());
-            count += 1;
-        }
-    }
-}
-
-fn add_menu_section(title: &str, items: &[(String, f64, db::Entry)], matches: &mut Vec<String>) {
-    let mut count = 0;
-    let mut has_title = false;
-    for (p, _, _) in items {
-        if count >= 3 {
-            break;
-        }
-        if !matches.contains(p) {
-            if !has_title {
-                eprintln!("\n{}", title.cyan());
-                has_title = true;
-            }
-            matches.push(p.clone());
-            eprintln!("  {}) {}", matches.len(), p.green());
             count += 1;
         }
     }
@@ -382,6 +362,8 @@ fn list_command(_config: &config::Config) {
     println!();
 }
 
+use dialoguer::{theme::ColorfulTheme, Select};
+
 fn interactive_command(keywords: Vec<String>, config: &config::Config) {
     let db = db::load_db();
     let now = SystemTime::now()
@@ -393,13 +375,15 @@ fn interactive_command(keywords: Vec<String>, config: &config::Config) {
         .into_iter()
         .filter(|k| !k.trim().is_empty())
         .collect();
-    let mut matches = if !valid_keywords.is_empty() {
-        get_all_matches(&valid_keywords, config)
-    } else {
-        Vec::new()
-    };
 
-    if matches.is_empty() && valid_keywords.is_empty() && !db.is_empty() {
+    let mut display_items = Vec::new();
+    let mut actual_paths = Vec::new();
+
+    if valid_keywords.is_empty() {
+        if db.is_empty() {
+            std::process::exit(1);
+        }
+
         let all_paths: Vec<_> = db
             .into_iter()
             .map(|(p, e)| {
@@ -429,50 +413,61 @@ fn interactive_command(keywords: Vec<String>, config: &config::Config) {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        eprintln!("{}", "Select directory:".yellow());
-        add_menu_section("[Suggested Projects]", &projects, &mut matches);
-        add_menu_section("[Recent Paths]", &recent, &mut matches);
-        add_menu_section("[Frequent Paths]", &frequent, &mut matches);
-    } else if !matches.is_empty() {
-        eprintln!("{}", "Select directory:".yellow());
-        for (i, path) in matches.iter().take(10).enumerate() {
-            eprintln!("  {}) {}", i + 1, path.green());
+        let mut seen = std::collections::HashSet::new();
+        for (p, _, _) in projects.iter().take(5) {
+            if !seen.contains(p) {
+                display_items.push(format!("{} {}", "[Project]".cyan(), p.green()));
+                actual_paths.push(p.clone());
+                seen.insert(p.clone());
+            }
+        }
+        for (p, _, _) in recent.iter().take(5) {
+            if !seen.contains(p) {
+                display_items.push(format!("{}  {}", "[Recent] ".blue(), p.green()));
+                actual_paths.push(p.clone());
+                seen.insert(p.clone());
+            }
+        }
+        for (p, _, _) in frequent.iter().take(5) {
+            if !seen.contains(p) {
+                display_items.push(format!("{} {}", "[Freq]   ".yellow(), p.green()));
+                actual_paths.push(p.clone());
+                seen.insert(p.clone());
+            }
+        }
+    } else {
+        let matches = get_all_matches(&valid_keywords, config);
+        if matches.len() == 1 {
+            print_preview(&matches[0], config);
+            println!("{}", matches[0]);
+            add_path(matches[0].clone(), config);
+            return;
+        }
+        for p in matches {
+            display_items.push(p.green().to_string());
+            actual_paths.push(p);
         }
     }
 
-    if matches.is_empty() {
+    if actual_paths.is_empty() {
         std::process::exit(1);
     }
 
-    if matches.len() == 1 && !valid_keywords.is_empty() {
-        print_preview(&matches[0], config);
-        println!("{}", matches[0]);
-        add_path(matches[0].clone(), config);
-        return;
-    }
+    let selection = Select::with_theme(&ColorfulTheme::default())
+        .with_prompt("Select directory")
+        .default(0)
+        .items(&display_items)
+        .interact_opt()
+        .unwrap();
 
-    let max_choices = std::cmp::min(matches.len(), 10);
-    eprint!("\nSelection [1-{}, q to quit]: ", max_choices);
-    io::stderr().flush().unwrap();
-
-    let mut choice = String::new();
-    if io::stdin().read_line(&mut choice).is_ok() {
-        let choice = choice.trim().to_lowercase();
-        if choice.is_empty() || choice == "q" {
-            std::process::exit(0);
-        }
-        if let Ok(idx) = choice.parse::<usize>() {
-            if idx > 0 && idx <= matches.len() {
-                let selected = &matches[idx - 1];
-                print_preview(selected, config);
-                println!("{}", selected);
-                add_path(selected.clone(), config);
-                return;
-            }
-        }
+    if let Some(index) = selection {
+        let selected = &actual_paths[index];
+        print_preview(selected, config);
+        println!("{}", selected);
+        add_path(selected.clone(), config);
+    } else {
+        std::process::exit(0);
     }
-    eprintln!();
-    std::process::exit(1);
 }
 
 fn main() {

@@ -163,7 +163,7 @@ fn expand_tilde(p: &str) -> PathBuf {
 
 pub fn fallback_search(config: &Config, keywords: &[String], limit: usize) -> Vec<String> {
     let mut found_paths = Vec::new();
-    let max_depth = 2;
+    let max_depth = config.max_fallback_depth;
 
     let roots: Vec<PathBuf> = config
         .search_roots
@@ -208,7 +208,7 @@ pub fn fallback_search(config: &Config, keywords: &[String], limit: usize) -> Ve
 
 pub fn fallback_project_search(config: &Config, intent: &Intent, limit: usize) -> Vec<String> {
     let mut found_paths = Vec::new();
-    let max_depth = 2;
+    let max_depth = config.max_fallback_depth;
 
     let roots: Vec<PathBuf> = config
         .search_roots

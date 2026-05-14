@@ -120,7 +120,8 @@ You can open and edit this JSON file to customize its behavior:
 | `max_entries` | The maximum number of history entries allowed to prevent bloat. | `1000` |
 | `exclude_list` | Globs and folder names to completely ignore. | `[".git", "node_modules", ".venv", "__pycache__"]` |
 | `project_markers` | Files that signal that a directory is a workspace/project. | `["package.json", "Cargo.toml", ".git"]` |
-
+| `max_fallback_depth` | How deep the fallback search should scan from search roots. | `3` |
+| `preview_on_jump` | Show directory contents after jumping. | `true` |
 ---
 
 ## Matching Algorithm

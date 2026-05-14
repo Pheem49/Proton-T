@@ -47,11 +47,19 @@ _proton_t_complete() {
 }
 
 if [ -n "$BASH_VERSION" ]; then
-    cd() {
-        builtin cd "$@" || return
-        _proton_t_chpwd
+    _proton_t_prompt_command() {
+        local exit_status=$?
+        if [ "$PWD" != "$_PROTON_T_LAST_PWD" ]; then
+            _proton_t_chpwd
+            _PROTON_T_LAST_PWD="$PWD"
+        fi
+        return $exit_status
     }
+    if [[ "$PROMPT_COMMAND" != *_proton_t_prompt_command* ]]; then
+        PROMPT_COMMAND="_proton_t_prompt_command${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
+    fi
 
+    _PROTON_T_LAST_PWD="$PWD"
     _proton_t_chpwd
     complete -F _proton_t_complete t
 elif [ -n "$ZSH_VERSION" ]; then

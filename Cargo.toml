@@ -1,6 +1,6 @@
 [package]
 name = "proton-t"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 description = "A smarter cd command with frecency and fallback search"
 license = "MIT"
@@ -12,3 +12,4 @@ serde_json = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 dirs = "5.0"
 colored = "2.2"
+dialoguer = "0.12.0"

@@ -14,6 +14,8 @@ pub struct Config {
     pub project_markers: Vec<String>,
     #[serde(default = "default_preview_on_jump")]
     pub preview_on_jump: bool,
+    #[serde(default = "default_max_fallback_depth")]
+    pub max_fallback_depth: usize,
 }
 
 fn default_search_roots() -> Vec<String> {
@@ -27,6 +29,10 @@ fn default_search_roots() -> Vec<String> {
 
 fn default_max_entries() -> usize {
     1000
+}
+
+fn default_max_fallback_depth() -> usize {
+    3
 }
 
 fn default_exclude_list() -> HashSet<String> {
@@ -67,6 +73,7 @@ impl Default for Config {
             exclude_list: default_exclude_list(),
             project_markers: default_project_markers(),
             preview_on_jump: default_preview_on_jump(),
+            max_fallback_depth: default_max_fallback_depth(),
         }
     }
 }
