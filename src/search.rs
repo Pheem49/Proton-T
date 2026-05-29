@@ -117,13 +117,26 @@ pub fn match_with_intent(
         .to_string_lossy()
         .to_lowercase();
 
-    if !intent.kws.is_empty()
-        && intent
-            .kws
-            .iter()
-            .all(|k| basename.contains(&k.to_lowercase()))
-    {
-        score *= 10.0;
+    if !intent.kws.is_empty() {
+        let mut all_match_basename = true;
+        let mut exact_match = false;
+        for k in &intent.kws {
+            let k_lower = k.to_lowercase();
+            if !basename.contains(&k_lower) {
+                all_match_basename = false;
+                break;
+            }
+            if basename == k_lower {
+                exact_match = true;
+            }
+        }
+        if all_match_basename {
+            if exact_match {
+                score *= 10000.0;
+            } else {
+                score *= 1000.0;
+            }
+        }
     }
 
     if intent.recent {
