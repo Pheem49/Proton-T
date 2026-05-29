@@ -39,7 +39,11 @@ pub fn parse_intent(keywords: &[String]) -> Intent {
         if ["last", "recent", "latest", "today"].contains(&kw_lower.as_str()) {
             intent.recent = true;
         } else if ["project", "app", "proj"].contains(&kw_lower.as_str()) {
-            intent.project = true;
+            if keywords.len() > 1 {
+                intent.project = true;
+            } else {
+                intent.kws.push(kw_lower);
+            }
         } else {
             let mut mapped = false;
             for (tag, syns) in &tag_map {
@@ -299,13 +303,13 @@ mod tests {
             is_project: false,
             removed: false,
         };
-        let intent = parse_intent(&["project".to_string()]);
+        let intent = parse_intent(&["project".to_string(), "workspace".to_string()]);
         let result = match_with_intent(
             &project_dir.to_string_lossy(),
             &entry,
             &intent,
             &["project".to_string()],
-            &["Cargo.toml".to_string()],
+            &["project".to_string(), "workspace".to_string()],
             10.0,
         );
 
@@ -329,7 +333,7 @@ mod tests {
             search_roots: vec![root.to_string_lossy().into_owned()],
             ..Config::default()
         };
-        let intent = parse_intent(&["project".to_string()]);
+        let intent = parse_intent(&["project".to_string(), "service".to_string()]);
         let matches = fallback_project_search(&config, &intent, 10);
 
         assert!(matches.contains(&project_dir.to_string_lossy().into_owned()));

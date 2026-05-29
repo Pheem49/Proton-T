@@ -22,7 +22,7 @@ Proton-T uses simple commands to jump into directories or manage your database.
 | Command | Action | Description |
 |:---|:---|:---|
 | `t <query>` | Jump to match | cd into highest ranked directory matching keywords |
-| `t project` | Jump to project | cd into the highest ranked developer workspace |
+| `t project <query>` | Jump to project | cd into developer workspace matching the query |
 | `t backend` | Tag mapping | cd into directories tagged 'api', 'server', 'node', etc. |
 | `t ..` | Go up | cd one level up |
 | `t -` | Go back | cd into previous directory |
