@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -16,6 +16,8 @@ pub struct Config {
     pub preview_on_jump: bool,
     #[serde(default = "default_max_fallback_depth")]
     pub max_fallback_depth: usize,
+    #[serde(default = "default_tags")]
+    pub tags: HashMap<String, Vec<String>>,
 }
 
 fn default_search_roots() -> Vec<String> {
@@ -65,6 +67,25 @@ fn default_preview_on_jump() -> bool {
     true
 }
 
+fn default_tags() -> HashMap<String, Vec<String>> {
+    let mut map = HashMap::new();
+    map.insert(
+        "backend".to_string(),
+        vec!["api", "server", "node", "backend", "go", "java"]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+    );
+    map.insert(
+        "frontend".to_string(),
+        vec!["ui", "react", "web", "frontend", "client", "next", "vue"]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+    );
+    map
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -74,6 +95,7 @@ impl Default for Config {
             project_markers: default_project_markers(),
             preview_on_jump: default_preview_on_jump(),
             max_fallback_depth: default_max_fallback_depth(),
+            tags: default_tags(),
         }
     }
 }
@@ -125,5 +147,26 @@ mod tests {
         assert!(parsed.exclude_list.contains(".git"));
         assert!(parsed.preview_on_jump);
         assert!(parsed.project_markers.contains(&"Cargo.toml".to_string()));
+        assert!(parsed.tags.contains_key("backend"));
+    }
+
+    #[test]
+    fn deserializing_config_honors_custom_tags() {
+        let parsed: Config = serde_json::from_str(
+            r#"{
+                "tags": {"data": ["etl", "pipeline", "spark"]}
+            }"#,
+        )
+        .expect("config should deserialize");
+
+        assert_eq!(
+            parsed.tags.get("data"),
+            Some(&vec![
+                "etl".to_string(),
+                "pipeline".to_string(),
+                "spark".to_string()
+            ])
+        );
+        assert!(!parsed.tags.contains_key("backend"));
     }
 }

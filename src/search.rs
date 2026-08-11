@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::db::{get_score, Entry};
-use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -11,28 +11,13 @@ pub struct Intent {
     pub tags: Vec<String>,
 }
 
-fn get_tag_map() -> HashMap<&'static str, Vec<&'static str>> {
-    let mut map = HashMap::new();
-    map.insert(
-        "backend",
-        vec!["api", "server", "node", "backend", "go", "java"],
-    );
-    map.insert(
-        "frontend",
-        vec!["ui", "react", "web", "frontend", "client", "next", "vue"],
-    );
-    map
-}
-
-pub fn parse_intent(keywords: &[String]) -> Intent {
+pub fn parse_intent(keywords: &[String], config: &Config) -> Intent {
     let mut intent = Intent {
         recent: false,
         project: false,
         kws: Vec::new(),
         tags: Vec::new(),
     };
-
-    let tag_map = get_tag_map();
 
     for kw in keywords {
         let kw_lower = kw.to_lowercase();
@@ -46,10 +31,10 @@ pub fn parse_intent(keywords: &[String]) -> Intent {
             }
         } else {
             let mut mapped = false;
-            for (tag, syns) in &tag_map {
-                if syns.contains(&kw_lower.as_str()) || &kw_lower == tag {
+            for (tag, syns) in &config.tags {
+                if syns.iter().any(|s| s == &kw_lower) || &kw_lower == tag {
                     for s in syns {
-                        intent.tags.push(s.to_string());
+                        intent.tags.push(s.clone());
                     }
                     mapped = true;
                 }
@@ -178,7 +163,7 @@ fn expand_tilde(p: &str) -> PathBuf {
     PathBuf::from(p)
 }
 
-pub fn fallback_search(config: &Config, keywords: &[String], limit: usize) -> Vec<String> {
+pub fn fallback_search(config: &Config, intent: &Intent, limit: usize) -> Vec<String> {
     let mut found_paths = Vec::new();
     let max_depth = config.max_fallback_depth;
 
@@ -190,9 +175,8 @@ pub fn fallback_search(config: &Config, keywords: &[String], limit: usize) -> Ve
         .collect();
 
     for root in roots {
-        let mut queue = vec![(root, 0)];
-        while !queue.is_empty() {
-            let (curr_dir, depth) = queue.remove(0);
+        let mut queue = VecDeque::from([(root, 0)]);
+        while let Some((curr_dir, depth)) = queue.pop_front() {
             if depth > max_depth {
                 continue;
             }
@@ -204,16 +188,20 @@ pub fn fallback_search(config: &Config, keywords: &[String], limit: usize) -> Ve
                             if name.starts_with('.') || config.exclude_list.contains(&name) {
                                 continue;
                             }
-                            if is_fuzzy_match(keywords, &name) {
-                                let path_str = entry.path().to_string_lossy().into_owned();
-                                if !found_paths.contains(&path_str) {
-                                    found_paths.push(path_str);
-                                    if found_paths.len() >= limit {
-                                        return found_paths;
-                                    }
+                            let path_str = entry.path().to_string_lossy().into_owned();
+                            let path_lower = path_str.to_lowercase();
+                            let keyword_match =
+                                intent.kws.is_empty() || is_fuzzy_match(&intent.kws, &name);
+                            let tag_match = intent.tags.is_empty()
+                                || intent.tags.iter().any(|tag| path_lower.contains(tag));
+
+                            if keyword_match && tag_match && !found_paths.contains(&path_str) {
+                                found_paths.push(path_str);
+                                if found_paths.len() >= limit {
+                                    return found_paths;
                                 }
                             }
-                            queue.push((entry.path(), depth + 1));
+                            queue.push_back((entry.path(), depth + 1));
                         }
                     }
                 }
@@ -235,9 +223,8 @@ pub fn fallback_project_search(config: &Config, intent: &Intent, limit: usize) -
         .collect();
 
     for root in roots {
-        let mut queue = vec![(root, 0)];
-        while !queue.is_empty() {
-            let (curr_dir, depth) = queue.remove(0);
+        let mut queue = VecDeque::from([(root, 0)]);
+        while let Some((curr_dir, depth)) = queue.pop_front() {
             if depth > max_depth {
                 continue;
             }
@@ -272,7 +259,7 @@ pub fn fallback_project_search(config: &Config, intent: &Intent, limit: usize) -
                             }
                         }
 
-                        queue.push((path, depth + 1));
+                        queue.push_back((path, depth + 1));
                     }
                 }
             }
@@ -316,7 +303,10 @@ mod tests {
             is_project: false,
             removed: false,
         };
-        let intent = parse_intent(&["project".to_string(), "workspace".to_string()]);
+        let intent = parse_intent(
+            &["project".to_string(), "workspace".to_string()],
+            &Config::default(),
+        );
         let result = match_with_intent(
             &project_dir.to_string_lossy(),
             &entry,
@@ -346,7 +336,7 @@ mod tests {
             search_roots: vec![root.to_string_lossy().into_owned()],
             ..Config::default()
         };
-        let intent = parse_intent(&["project".to_string(), "service".to_string()]);
+        let intent = parse_intent(&["project".to_string(), "service".to_string()], &config);
         let matches = fallback_project_search(&config, &intent, 10);
 
         assert!(matches.contains(&project_dir.to_string_lossy().into_owned()));

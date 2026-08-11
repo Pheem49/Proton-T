@@ -32,6 +32,9 @@ Proton-T uses simple commands to jump into directories or manage your database.
 | `proton-t list` | View rankings | View current directory rankings |
 | `proton-t clean` | Clean database | Remove invalid/deleted directories from the tracking database |
 | `proton-t remove <path>`| Remove path | Remove a specific path from the database |
+| `proton-t save <alias> [path]` | Save a bookmark | Bookmark a directory (defaults to the current directory) under a short alias |
+| `proton-t unsave <alias>` | Remove a bookmark | Delete a saved alias |
+| `proton-t bookmarks` | List bookmarks | Show all saved aliases and the paths they point to |
 
 ### Examples
 
@@ -42,6 +45,21 @@ t recent project   # Use intent keywords to jump to exactly what you need
 
 ti                 # Forgot the name? Just type ti to browse your active paths
 ```
+
+### Bookmarks
+
+Frecency is great once you've visited a place a few times, but some directories are worth a permanent shortcut regardless of how often you visit them — a client's repo with a long, unmemorable path, for example:
+
+```bash
+cd ~/work/client-xyz/backend-v2
+proton-t save xyz          # bookmark the current directory as 'xyz'
+
+t xyz                      # jumps straight there from anywhere, no fuzzy matching involved
+proton-t bookmarks          # list every saved alias
+proton-t unsave xyz         # remove it
+```
+
+An alias always takes priority over frecency and fallback matching when a query is a single word. If the bookmarked directory has since been deleted, `t <alias>` quietly falls back to a normal search instead of failing.
 
 *Read more about the matching algorithm [here](#matching-algorithm).*
 
@@ -122,6 +140,18 @@ You can open and edit this JSON file to customize its behavior:
 | `project_markers` | Files that signal that a directory is a workspace/project. | `["package.json", "Cargo.toml", ".git"]` |
 | `max_fallback_depth` | How deep the fallback search should scan from search roots. | `3` |
 | `preview_on_jump` | Show directory contents after jumping. | `true` |
+| `tags` | Custom keyword groups. Typing any word in a group matches folders containing any word from that same group. | `{"backend": ["api", "server", "node", "backend", "go", "java"], "frontend": ["ui", "react", "web", "frontend", "client", "next", "vue"]}` |
+
+Setting `tags` in your config replaces the defaults entirely (it doesn't merge), so include `backend`/`frontend` yourself if you want to keep them alongside your own groups:
+
+```json
+"tags": {
+  "backend": ["api", "server", "node", "backend", "go", "java"],
+  "data": ["etl", "pipeline", "spark", "data"]
+}
+```
+
+With the above, `t data` will match folders like `etl-pipeline` or `spark-jobs` even if you've never visited them before.
 ---
 
 ## Matching Algorithm

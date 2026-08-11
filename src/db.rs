@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
+use std::fs::{self, File, OpenOptions};
+use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -40,7 +41,7 @@ pub fn save_db(mut db: HashMap<String, Entry>, max_entries: usize) {
     if db.len() > max_entries {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or_default()
             .as_secs_f64();
         let mut removed_entries = Vec::new();
         let mut active_entries = Vec::new();
@@ -64,8 +65,54 @@ pub fn save_db(mut db: HashMap<String, Entry>, max_entries: usize) {
         db = removed_entries.into_iter().collect();
     }
 
-    if let Ok(json) = serde_json::to_string_pretty(&db) {
-        let _ = fs::write(db_path, json);
+    write_json_atomic(&db_path, &db);
+}
+
+/// Acquires an exclusive, cross-process file lock, then loads, mutates, and
+/// (if `mutate` reports a change) saves the database as one atomic critical
+/// section. This prevents two concurrent `proton-t` invocations (e.g. two
+/// shells `cd`-ing at once) from racing on a read-modify-write and silently
+/// dropping each other's update.
+pub fn with_locked_db<F>(max_entries: usize, mutate: F)
+where
+    F: FnOnce(&mut HashMap<String, Entry>) -> bool,
+{
+    let _lock = acquire_lock();
+    let mut db = load_db();
+    if mutate(&mut db) {
+        save_db(db, max_entries);
+    }
+}
+
+fn acquire_lock() -> Option<File> {
+    locked_file(".proton_t_db.lock")
+}
+
+/// Opens (creating if needed) the named file under the home directory and
+/// takes an exclusive, blocking OS-level lock on it. The lock is released
+/// when the returned `File` is dropped. Shared by `db` and `bookmarks` so
+/// both stores get the same cross-process read-modify-write protection.
+pub(crate) fn locked_file(name: &str) -> Option<File> {
+    let mut lock_path = dirs::home_dir()?;
+    lock_path.push(name);
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .open(lock_path)
+        .ok()?;
+    file.lock().ok()?;
+    Some(file)
+}
+
+/// Serializes `value` to pretty JSON and writes it to `path` via a
+/// write-to-temp-then-rename so a crash mid-write can never leave a
+/// half-written file in place (rename is atomic on Linux).
+pub(crate) fn write_json_atomic<T: Serialize>(path: &Path, value: &T) {
+    if let Ok(json) = serde_json::to_string_pretty(value) {
+        let tmp_path = path.with_extension("json.tmp");
+        if fs::write(&tmp_path, json).is_ok() {
+            let _ = fs::rename(&tmp_path, path);
+        }
     }
 }
 

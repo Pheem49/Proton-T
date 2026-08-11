@@ -1,3 +1,4 @@
+mod bookmarks;
 mod config;
 mod db;
 mod search;
@@ -33,6 +34,12 @@ enum Commands {
     Remove { path: String },
     /// Remove invalid directories from the tracking database
     Clean,
+    /// Save a named bookmark for a directory (defaults to the current directory)
+    Save { alias: String, path: Option<String> },
+    /// Remove a saved bookmark
+    Unsave { alias: String },
+    /// List saved bookmarks
+    Bookmarks,
     /// Generate completions for the given keywords
     Complete { keywords: Vec<String> },
     /// Generate shell initialization script
@@ -127,36 +134,36 @@ fn add_path_with_behavior(path_str: String, config: &config::Config, revive_remo
         return;
     }
 
-    let mut db = db::load_db();
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs_f64();
     let proj_flag = is_project(&abs_path, &config.project_markers);
 
-    if let Some(entry) = db.get_mut(&abs_path) {
-        if entry.removed {
-            if !revive_removed {
-                return;
+    db::with_locked_db(config.max_entries, |db| {
+        if let Some(entry) = db.get_mut(&abs_path) {
+            if entry.removed {
+                if !revive_removed {
+                    return false;
+                }
+                entry.removed = false;
             }
-            entry.removed = false;
+            entry.score += 1.0;
+            entry.last_access = now;
+            entry.is_project = proj_flag;
+        } else {
+            db.insert(
+                abs_path.clone(),
+                db::Entry {
+                    score: 1.0,
+                    last_access: now,
+                    is_project: proj_flag,
+                    removed: false,
+                },
+            );
         }
-        entry.score += 1.0;
-        entry.last_access = now;
-        entry.is_project = proj_flag;
-    } else {
-        db.insert(
-            abs_path,
-            db::Entry {
-                score: 1.0,
-                last_access: now,
-                is_project: proj_flag,
-                removed: false,
-            },
-        );
-    }
-
-    db::save_db(db, config.max_entries);
+        true
+    });
 }
 
 fn filter_removed_paths(
@@ -179,12 +186,21 @@ fn query_paths(keywords: &[String], config: &config::Config) -> Option<String> {
         return None;
     }
 
+    if keywords.len() == 1 {
+        let alias = keywords[0].to_lowercase();
+        if let Some(path) = bookmarks::load_bookmarks().get(&alias) {
+            if Path::new(path).is_dir() {
+                return Some(path.clone());
+            }
+        }
+    }
+
     let db = db::load_db();
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs_f64();
-    let intent = search::parse_intent(keywords);
+    let intent = search::parse_intent(keywords, config);
 
     let full_search = keywords.join(" ");
     if let Ok(p) = fs::canonicalize(PathBuf::from(&full_search)) {
@@ -216,12 +232,12 @@ fn query_paths(keywords: &[String], config: &config::Config) -> Option<String> {
     let mut fallbacks = if intent.project {
         let project_matches = search::fallback_project_search(config, &intent, 2);
         if project_matches.is_empty() {
-            search::fallback_search(config, keywords, 2)
+            search::fallback_search(config, &intent, 2)
         } else {
             project_matches
         }
     } else {
-        search::fallback_search(config, keywords, 2)
+        search::fallback_search(config, &intent, 2)
     };
     fallbacks = filter_removed_paths(fallbacks, &db);
     if !fallbacks.is_empty() {
@@ -256,9 +272,9 @@ fn get_all_matches(keywords: &[String], config: &config::Config) -> Vec<String> 
     let db = db::load_db();
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs_f64();
-    let intent = search::parse_intent(keywords);
+    let intent = search::parse_intent(keywords, config);
 
     let mut matches = Vec::new();
     for (path, entry) in &db {
@@ -282,7 +298,7 @@ fn get_all_matches(keywords: &[String], config: &config::Config) -> Vec<String> 
     } else {
         Vec::new()
     };
-    fallbacks.extend(search::fallback_search(config, keywords, 10));
+    fallbacks.extend(search::fallback_search(config, &intent, 10));
     for f in filter_removed_paths(fallbacks, &db) {
         if !results.contains(&f) {
             results.push(f);
@@ -308,20 +324,20 @@ fn print_section(
                 println!("\n{}", title.cyan());
                 has_title = true;
             }
-            println!("  - {}", p.green());
+            println!("  - {}", p);
             shown.insert(p.clone());
             count += 1;
         }
     }
 }
 
-fn list_command(_config: &config::Config) {
-    let db = db::load_db();
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs_f64();
+type RankedSections = (
+    Vec<(String, f64, db::Entry)>,
+    Vec<(String, f64, db::Entry)>,
+    Vec<(String, f64, db::Entry)>,
+);
 
+fn ranked_sections(db: std::collections::HashMap<String, db::Entry>, now: f64) -> RankedSections {
     let all_paths: Vec<_> = db
         .into_iter()
         .map(|(p, e)| {
@@ -329,10 +345,6 @@ fn list_command(_config: &config::Config) {
             (p, score, e)
         })
         .collect();
-
-    if all_paths.is_empty() {
-        return;
-    }
 
     let mut projects: Vec<_> = all_paths
         .iter()
@@ -355,6 +367,21 @@ fn list_command(_config: &config::Config) {
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
+    (projects, recent, frequent)
+}
+
+fn list_command(_config: &config::Config) {
+    let db = db::load_db();
+    if db.is_empty() {
+        return;
+    }
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64();
+
+    let (projects, recent, frequent) = ranked_sections(db, now);
+
     let mut shown = std::collections::HashSet::new();
     print_section("[Suggested Projects]", &projects, &mut shown);
     print_section("[Recent Paths]", &recent, &mut shown);
@@ -368,7 +395,7 @@ fn interactive_command(keywords: Vec<String>, config: &config::Config) {
     let db = db::load_db();
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs_f64();
 
     let valid_keywords: Vec<String> = keywords
@@ -384,53 +411,26 @@ fn interactive_command(keywords: Vec<String>, config: &config::Config) {
             std::process::exit(1);
         }
 
-        let all_paths: Vec<_> = db
-            .into_iter()
-            .map(|(p, e)| {
-                let score = db::get_score(&e, now);
-                (p, score, e)
-            })
-            .collect();
-
-        let mut projects: Vec<_> = all_paths
-            .iter()
-            .filter(|(_, _, e)| e.is_project)
-            .cloned()
-            .collect();
-        projects.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
-
-        let mut recent = all_paths.clone();
-        recent.sort_by(|a, b| {
-            b.2.last_access
-                .partial_cmp(&a.2.last_access)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        let mut frequent = all_paths.clone();
-        frequent.sort_by(|a, b| {
-            b.2.score
-                .partial_cmp(&a.2.score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+        let (projects, recent, frequent) = ranked_sections(db, now);
 
         let mut seen = std::collections::HashSet::new();
         for (p, _, _) in projects.iter().take(5) {
             if !seen.contains(p) {
-                display_items.push(format!("{} {}", "[Project]".cyan(), p.green()));
+                display_items.push(format!("{} {}", "[Project]".cyan(), p));
                 actual_paths.push(p.clone());
                 seen.insert(p.clone());
             }
         }
         for (p, _, _) in recent.iter().take(5) {
             if !seen.contains(p) {
-                display_items.push(format!("{}  {}", "[Recent] ".blue(), p.green()));
+                display_items.push(format!("{}  {}", "[Recent] ".blue(), p));
                 actual_paths.push(p.clone());
                 seen.insert(p.clone());
             }
         }
         for (p, _, _) in frequent.iter().take(5) {
             if !seen.contains(p) {
-                display_items.push(format!("{} {}", "[Freq]   ".yellow(), p.green()));
+                display_items.push(format!("{} {}", "[Freq]   ".yellow(), p));
                 actual_paths.push(p.clone());
                 seen.insert(p.clone());
             }
@@ -444,7 +444,7 @@ fn interactive_command(keywords: Vec<String>, config: &config::Config) {
             return;
         }
         for p in matches {
-            display_items.push(p.green().to_string());
+            display_items.push(p.clone());
             actual_paths.push(p);
         }
     }
@@ -457,6 +457,7 @@ fn interactive_command(keywords: Vec<String>, config: &config::Config) {
         .with_prompt("Select directory")
         .default(0)
         .items(&display_items)
+        .max_length(5)
         .interact_opt()
         .unwrap();
 
@@ -492,66 +493,135 @@ fn main() {
             interactive_command(keywords, &config);
         }
         Commands::Remove { path } => {
-            let mut db = db::load_db();
-            if let Ok(abs_path) = fs::canonicalize(&path) {
-                let p_str = abs_path.to_string_lossy().into_owned();
-                let was_project = db
-                    .get(&p_str)
-                    .map(|entry| entry.is_project)
-                    .unwrap_or_else(|| is_project(&p_str, &config.project_markers));
-                db.insert(
-                    p_str,
-                    db::Entry {
-                        score: 0.0,
-                        last_access: 0.0,
-                        is_project: was_project,
-                        removed: true,
-                    },
-                );
-                db::save_db(db, config.max_entries);
-                println!("{} '{}' from database.", "Removed".green(), path);
-                return;
-            } else if db.contains_key(&path) {
-                if let Some(entry) = db.get_mut(&path) {
+            let canonical = fs::canonicalize(&path).ok();
+            let mut found = false;
+            db::with_locked_db(config.max_entries, |db| {
+                if let Some(abs_path) = &canonical {
+                    let p_str = abs_path.to_string_lossy().into_owned();
+                    let was_project = db
+                        .get(&p_str)
+                        .map(|entry| entry.is_project)
+                        .unwrap_or_else(|| is_project(&p_str, &config.project_markers));
+                    db.insert(
+                        p_str,
+                        db::Entry {
+                            score: 0.0,
+                            last_access: 0.0,
+                            is_project: was_project,
+                            removed: true,
+                        },
+                    );
+                    found = true;
+                    true
+                } else if let Some(entry) = db.get_mut(&path) {
                     entry.score = 0.0;
                     entry.last_access = 0.0;
                     entry.removed = true;
+                    found = true;
+                    true
+                } else {
+                    false
                 }
-                db::save_db(db, config.max_entries);
+            });
+
+            if found {
                 println!("{} '{}' from database.", "Removed".green(), path);
-                return;
+            } else {
+                println!("{} '{}' not found in database.", "Path".yellow(), path);
+                std::process::exit(1);
             }
-            println!("{} '{}' not found in database.", "Path".yellow(), path);
-            std::process::exit(1);
         }
         Commands::Clean => {
-            let mut db = db::load_db();
-            let mut to_remove = Vec::new();
-            for path in db.keys() {
-                if !Path::new(path).is_dir() {
-                    to_remove.push(path.clone());
+            let mut count = 0;
+            db::with_locked_db(config.max_entries, |db| {
+                let mut to_remove = Vec::new();
+                for path in db.keys() {
+                    if !Path::new(path).is_dir() {
+                        to_remove.push(path.clone());
+                    }
                 }
-            }
-            let count = to_remove.len();
-            for path in to_remove {
-                db.remove(&path);
-            }
-            if count > 0 {
-                db::save_db(db, config.max_entries);
-            }
+                count = to_remove.len();
+                for path in to_remove {
+                    db.remove(&path);
+                }
+                count > 0
+            });
             println!(
                 "{} {} invalid paths from the database.",
                 "Cleaned".green(),
                 count
             );
         }
+        Commands::Save { alias, path } => {
+            let target = path.unwrap_or_else(|| {
+                std::env::current_dir()
+                    .map(|p| p.to_string_lossy().into_owned())
+                    .unwrap_or_default()
+            });
+            let abs_path = match fs::canonicalize(&target) {
+                Ok(p) if p.is_dir() => p.to_string_lossy().into_owned(),
+                _ => {
+                    eprintln!("{} '{}' is not a valid directory.", "Error:".red(), target);
+                    std::process::exit(1);
+                }
+            };
+            let alias_key = alias.to_lowercase();
+            bookmarks::with_locked_bookmarks(|marks| {
+                marks.insert(alias_key.clone(), abs_path.clone());
+                true
+            });
+            println!("{} '{}' -> {}", "Saved".green(), alias, abs_path);
+        }
+        Commands::Unsave { alias } => {
+            let alias_key = alias.to_lowercase();
+            let mut found = false;
+            bookmarks::with_locked_bookmarks(|marks| {
+                found = marks.remove(&alias_key).is_some();
+                found
+            });
+            if found {
+                println!("{} bookmark '{}'.", "Removed".green(), alias);
+            } else {
+                println!("{} '{}' not found in bookmarks.", "Bookmark".yellow(), alias);
+                std::process::exit(1);
+            }
+        }
+        Commands::Bookmarks => {
+            let mut marks: Vec<_> = bookmarks::load_bookmarks().into_iter().collect();
+            if marks.is_empty() {
+                println!(
+                    "No bookmarks saved yet. Use '{}' to add one.",
+                    "proton-t save <alias> [path]".cyan()
+                );
+                return;
+            }
+            marks.sort_by(|a, b| a.0.cmp(&b.0));
+            println!("\n{}", "[Bookmarks]".cyan());
+            for (alias, path) in marks {
+                println!("  {} -> {}", alias.yellow(), path);
+            }
+            println!();
+        }
         Commands::Complete { keywords } => {
+            // The last keyword is the word the shell is currently completing.
+            // Shell completion expects candidates to share a *prefix* with
+            // it (so it can fill in the rest); the query engine's fuzzy/
+            // substring matching doesn't guarantee that (e.g. a folder named
+            // "Video DownloadHelper" fuzzy-matches "down" without starting
+            // with it), which breaks Tab's fill-in behavior. Filter down to
+            // genuine prefix matches here, after using the same matching
+            // pipeline as `query`/`interactive` to rank and discover candidates.
+            let prefix = keywords.last().map(|k| k.to_lowercase());
             let results = get_all_matches(&keywords, &config);
             let mut seen = std::collections::HashSet::new();
             for path in results {
                 if let Some(name) = Path::new(&path).file_name() {
                     let name_str = name.to_string_lossy().to_string();
-                    if !seen.contains(&name_str) {
+                    let matches_prefix = prefix
+                        .as_ref()
+                        .map(|p| name_str.to_lowercase().starts_with(p))
+                        .unwrap_or(true);
+                    if matches_prefix && !seen.contains(&name_str) {
                         println!("{}", name_str);
                         seen.insert(name_str);
                     }
