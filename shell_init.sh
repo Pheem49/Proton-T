@@ -1,7 +1,11 @@
 #!/bin/bash
 t() {
     if [ $# -eq 0 ]; then
-        proton-t list
+        RESULT=$(proton-t interactive)
+        if [ -n "$RESULT" ]; then
+            [ "$_PT_ECHO" = "1" ] && echo "$RESULT"
+            cd "$RESULT"
+        fi
         return
     fi
     [ "$1" = "-" ] && { cd -; return; }
@@ -18,8 +22,7 @@ t() {
 }
 
 ti() {
-    # If keywords are provided, use them; otherwise show top visited
-    RESULT=$(proton-t interactive "$@")
+    RESULT=$(proton-t explore "$@")
     if [ -n "$RESULT" ]; then
         [ "$_PT_ECHO" = "1" ] && echo "$RESULT"
         cd "$RESULT"

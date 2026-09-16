@@ -1,7 +1,11 @@
 function t {
     param([Parameter(ValueFromRemainingArguments=$true)]$Keywords)
     if ($Keywords.Count -eq 0) {
-        proton-t list
+        $result = proton-t interactive
+        if ($result) {
+            if ($env:_PT_ECHO -eq "1") { Write-Host $result }
+            Set-Location $result
+        }
         return
     }
     if ($Keywords[0] -eq "-") {
@@ -24,7 +28,7 @@ function t {
 
 function ti {
     param([Parameter(ValueFromRemainingArguments=$true)]$Keywords)
-    $result = proton-t interactive $Keywords
+    $result = proton-t explore $Keywords
     if ($result) {
         if ($env:_PT_ECHO -eq "1") { Write-Host $result }
         Set-Location $result

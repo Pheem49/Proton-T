@@ -1,6 +1,12 @@
 function t --description 'Proton-T: Smart directory jump'
     if not set -q argv[1]
-        proton-t list
+        set -l result (proton-t interactive)
+        if test -n "$result"
+            if test "$_PT_ECHO" = "1"
+                echo $result
+            end
+            builtin cd $result
+        end
         return
     end
 
@@ -29,8 +35,8 @@ function t --description 'Proton-T: Smart directory jump'
     end
 end
 
-function ti --description 'Proton-T: Interactive directory selection'
-    set -l result (proton-t interactive $argv)
+function ti --description 'Proton-T: Interactive directory explorer'
+    set -l result (proton-t explore $argv)
     if test -n "$result"
         if test "$_PT_ECHO" = "1"
             echo $result

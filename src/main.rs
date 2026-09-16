@@ -30,6 +30,8 @@ enum Commands {
     List,
     /// Interactive selection
     Interactive { keywords: Vec<String> },
+    /// Explore subdirectories in the current directory interactively
+    Explore { keywords: Vec<String> },
     /// Remove a directory from the tracking database
     Remove { path: String },
     /// Remove invalid directories from the tracking database
@@ -458,14 +460,110 @@ fn interactive_command(keywords: Vec<String>, config: &config::Config) {
         .default(0)
         .items(&display_items)
         .max_length(5)
-        .interact_opt()
-        .unwrap();
+        .interact_opt();
 
-    if let Some(index) = selection {
+    if let Ok(Some(index)) = selection {
         let selected = &actual_paths[index];
         print_preview(selected, config);
         println!("{}", selected);
         add_path(selected.clone(), config);
+    } else {
+        std::process::exit(0);
+    }
+}
+
+fn explore_command(keywords: Vec<String>, config: &config::Config) {
+    let current_dir = match std::env::current_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            eprintln!("Error getting current directory: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let entries = match fs::read_dir(&current_dir) {
+        Ok(e) => e,
+        Err(e) => {
+            eprintln!("Error reading directory: {}", e);
+            std::process::exit(1);
+        }
+    };
+
+    let valid_keywords: Vec<String> = keywords
+        .into_iter()
+        .filter(|k| !k.trim().is_empty())
+        .map(|k| k.to_lowercase())
+        .collect();
+
+    let mut subdirs = Vec::new();
+    for entry in entries.flatten() {
+        if let Ok(ft) = entry.file_type() {
+            if ft.is_dir() {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                // Skip hidden directories and excluded directories
+                if name.starts_with('.') || config.exclude_list.contains(&name) {
+                    continue;
+                }
+
+                // Filter by keywords if provided
+                if !valid_keywords.is_empty() {
+                    let name_lower = name.to_lowercase();
+                    if !valid_keywords.iter().all(|k| name_lower.contains(k)) {
+                        continue;
+                    }
+                }
+
+                subdirs.push(name);
+            }
+        }
+    }
+
+    subdirs.sort_by_key(|a| a.to_lowercase());
+
+    let mut display_items = Vec::new();
+    let mut actual_paths = Vec::new();
+
+    // Add parent directory option if current directory has a parent and no keywords filtering
+    if valid_keywords.is_empty() && current_dir.parent().is_some() {
+        display_items.push(format!("{} {}", "📁".blue(), ".. (Parent directory)".dimmed()));
+        actual_paths.push("..".to_string());
+    }
+
+    for dir_name in &subdirs {
+        display_items.push(format!("{} {}", "📁".blue(), dir_name.bold()));
+        let full_path = current_dir.join(dir_name);
+        actual_paths.push(full_path.to_string_lossy().into_owned());
+    }
+
+    if actual_paths.is_empty() {
+        if !valid_keywords.is_empty() {
+            eprintln!(
+                "No subdirectories matching '{}' in {}",
+                valid_keywords.join(" "),
+                current_dir.display()
+            );
+        } else {
+            eprintln!("No subdirectories found in {}", current_dir.display());
+        }
+        std::process::exit(1);
+    }
+
+    let selection = Select::with_theme(&ColorfulTheme::default())
+        .with_prompt("Select directory")
+        .default(0)
+        .items(&display_items)
+        .max_length(10)
+        .interact_opt();
+
+    if let Ok(Some(index)) = selection {
+        let selected = &actual_paths[index];
+        if selected == ".." {
+            println!("..");
+        } else {
+            print_preview(selected, config);
+            println!("{}", selected);
+            add_path(selected.clone(), config);
+        }
     } else {
         std::process::exit(0);
     }
@@ -491,6 +589,9 @@ fn main() {
         }
         Commands::Interactive { keywords } => {
             interactive_command(keywords, &config);
+        }
+        Commands::Explore { keywords } => {
+            explore_command(keywords, &config);
         }
         Commands::Remove { path } => {
             let canonical = fs::canonicalize(&path).ok();

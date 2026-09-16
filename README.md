@@ -21,15 +21,16 @@ Proton-T uses simple commands to jump into directories or manage your database.
 
 | Command | Action | Description |
 |:---|:---|:---|
+| `t` | Global menu | Show interactive menu of suggested projects and recent paths (Global History) |
 | `t <query>` | Jump to match | cd into highest ranked directory matching keywords |
 | `t project <query>` | Jump to project | cd into developer workspace matching the query |
 | `t backend` | Tag mapping | cd into directories tagged 'api', 'server', 'node', etc. |
 | `t ..` | Go up | cd one level up |
 | `t -` | Go back | cd into previous directory |
 | `t <query><TAB>`| Tab completion | Autocomplete directory names from your database |
-| `ti` | Interactive menu | Show interactive numbered menu of suggested projects and recent paths |
-| `ti <query>` | Interactive search | cd with interactive selection matching the query |
-| `proton-t list` | View rankings | View current directory rankings |
+| `ti` | Directory explorer | Interactively browse and select subdirectories in current folder (like `ls` + `cd`) |
+| `ti <query>` | Filtered explorer | Interactively browse matching subdirectories in current folder |
+| `proton-t list` | View rankings | View current directory rankings text |
 | `proton-t clean` | Clean database | Remove invalid/deleted directories from the tracking database |
 | `proton-t remove <path>`| Remove path | Remove a specific path from the database |
 | `proton-t save <alias> [path]` | Save a bookmark | Bookmark a directory (defaults to the current directory) under a short alias |
@@ -39,11 +40,13 @@ Proton-T uses simple commands to jump into directories or manage your database.
 ### Examples
 
 ```bash
+t                  # Browse top projects, recent paths, and frequent paths across your system
 t foo              # Jump to the best match for 'foo'
 t foo bar          # Add multiple keywords to narrow it down
 t recent project   # Use intent keywords to jump to exactly what you need
 
-ti                 # Forgot the name? Just type ti to browse your active paths
+ti                 # Explore subdirectories in the current folder (like interactive ls)
+ti doc             # Explore matching subdirectories (e.g., 'docs')
 ```
 
 ### Bookmarks
